@@ -65,3 +65,5 @@ reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls-native-roots",
 ] }
 tokio-tungstenite = "0.26"
+[lints.clippy]
+uninlined_format_args = "deny"

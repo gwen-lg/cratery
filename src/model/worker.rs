@@ -119,7 +119,7 @@ enum WorkerState {
 impl WorkerState {
     /// Checks whether the worker is available
     #[must_use]
-    pub fn is_available(&self) -> bool {
+    pub const fn is_available(&self) -> bool {
         matches!(self, Self::Available(_))
     }
 }
@@ -204,7 +204,7 @@ pub struct WorkerSelector {
 impl WorkerSelector {
     /// Builds a selector that requires a native host for a target
     #[must_use]
-    pub fn new_native_target(target: String) -> Self {
+    pub const fn new_native_target(target: String) -> Self {
         Self {
             toolchain_host: Some(target),
             toolchain_installed_target: None,
@@ -215,7 +215,7 @@ impl WorkerSelector {
 
     /// Builds a selector that requires a target to be available
     #[must_use]
-    pub fn new_available_target(target: String) -> Self {
+    pub const fn new_available_target(target: String) -> Self {
         Self {
             toolchain_host: None,
             toolchain_installed_target: None,
@@ -344,12 +344,12 @@ pub struct WorkerCheckout {
 
 impl WorkerCheckout {
     /// Gets the job sender
-    pub fn sender(&mut self) -> &mut Sender<JobSpecification> {
+    pub const fn sender(&mut self) -> &mut Sender<JobSpecification> {
         &mut self.job_sender
     }
 
     /// Gets the update receiver
-    pub fn update_receiver(&mut self) -> &mut Receiver<JobUpdate> {
+    pub const fn update_receiver(&mut self) -> &mut Receiver<JobUpdate> {
         self.update_receiver.as_mut().unwrap()
     }
 }
@@ -570,7 +570,7 @@ pub enum JobSpecification {
 impl JobSpecification {
     /// Gets the job identifier
     #[must_use]
-    pub fn get_id(&self) -> JobIdentifier {
+    pub const fn get_id(&self) -> JobIdentifier {
         match self {
             Self::DocGen(doc_gen_job) => JobIdentifier::DocGen(doc_gen_job.id),
         }

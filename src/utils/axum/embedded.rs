@@ -75,6 +75,7 @@ pub enum WebappResource {
 impl WebappResource {
     /// Gets the content type for the resource
     #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn content_type(&self) -> &str {
         match self {
             Self::Embedded(res) => res.content_type,

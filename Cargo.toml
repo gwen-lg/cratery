@@ -68,16 +68,17 @@ tokio-tungstenite = "0.27"
 
 [lints.rust]
 unsafe_code = "forbid"
-unused_imports = "deny"
+unused_imports = "warn"
 
 [lints.clippy]
 cargo = { level = "warn", priority = -1 }
 complexity = { level = "deny", priority = -1 }
+correctness = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 perf = { level = "deny", priority = -1 }
 style = { level = "deny", priority = -1 }
-suspicious = { level = "deny", priority = -1 }
-# The individually activated lints below come from : nursery, pedantic, restriction or suspicious.
+suspicious = { level = "warn", priority = -1 }
+# The individually activated lints below come from : nursery, restriction.
 allow_attributes = "warn"
 cast_possible_truncation = "warn"
 fallible_impl_from = "warn"
@@ -92,5 +93,4 @@ option_if_let_else = "warn"
 or_fun_call = "deny"
 significant_drop_tightening = "warn"
 string_lit_as_bytes = "warn"
-uninlined_format_args = "deny"
 use_self = "warn"

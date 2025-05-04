@@ -449,6 +449,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tar",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-tungstenite 0.28.0",

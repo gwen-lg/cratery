@@ -71,7 +71,7 @@ tokio-tungstenite = "0.26"
 unused_imports = "deny"
 
 [lints.clippy]
-cargo = { priority = -1, level = "warn" }
+#cargo = { priority = -1, level = "warn" }
 complexity = { priority = -1, level = "deny" }
 correctness = { priority = -1, level = "deny" }
 perf = { priority = -1, level = "deny" }
@@ -88,6 +88,7 @@ derive_partial_eq_without_eq = "deny"
 doc_markdown = "deny"
 explicit_deref_methods = "deny"
 extra_unused_lifetimes = "deny"
+#fallible_impl_from = "deny"
 future_not_send = "deny"
 if_not_else = "deny"
 manual_assert = "deny"

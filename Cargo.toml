@@ -72,6 +72,7 @@ unsafe_code = "forbid"
 unused_imports = "deny"
 
 [lints.clippy]
+#cargo = { priority = -1, level = "warn" }
 complexity = { level = "deny", priority = -1 }
 perf = { level = "deny", priority = -1 }
 style = { level = "deny", priority = -1 }
@@ -89,6 +90,7 @@ derive_partial_eq_without_eq = "deny"
 doc_markdown = "deny"
 explicit_deref_methods = "deny"
 extra_unused_lifetimes = "deny"
+#fallible_impl_from = "deny"
 future_not_send = "deny"
 if_not_else = "deny"
 manual_assert = "deny"

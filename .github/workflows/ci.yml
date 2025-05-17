@@ -23,6 +23,8 @@ jobs:
         cache-on-failure: "true"
     - name: Check fmt
       run: cargo fmt --check
+    - name: "Check Cargo.toml format"
+      uses: gwen-lg/taplo@aa9565f6abd8e986a666254d556f38ae681aacc5
     - name: Check spelling
       uses: crate-ci/typos@master
     - name: Lint

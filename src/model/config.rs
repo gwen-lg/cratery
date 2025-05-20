@@ -898,7 +898,10 @@ impl Configuration {
             .map_err(mk_err)
     }
 
-    async fn write_auth_config_cargo_config_content(&self, mut writer: BufWriter<File>) -> Result<(), io::Error> {
+    async fn write_auth_config_cargo_config_content(
+        &self,
+        mut writer: impl AsyncWrite + std::marker::Unpin,
+    ) -> Result<(), io::Error> {
         writer.write_all(b"[registry]\n").await?;
         writer.write_all(b"global-credential-providers = [\"cargo:token\"]\n").await?;
         writer.write_all(b"\n").await?;

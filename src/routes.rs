@@ -23,7 +23,7 @@ use axum::{BoxError, Json};
 use cookie::Key;
 use futures::future::select_all;
 use futures::{SinkExt, Stream, StreamExt};
-use log::error;
+use log::{error, trace};
 use serde::Deserialize;
 use tokio::fs::File;
 use tokio::sync::Mutex;
@@ -371,6 +371,7 @@ pub async fn api_v1_login_with_oauth_code(
     let code = String::from_utf8_lossy(&body);
     let registry_user = state.application.login_with_oauth_code(&code).await.map_err(response_error)?;
     let cookie = auth_data.create_id_cookie(&Authentication::new_user(registry_user.id, registry_user.email.clone()));
+    trace!("api_login cookie : `{cookie}`\n\tfor user: {registry_user:?}");
     Ok((
         StatusCode::OK,
         [(SET_COOKIE, HeaderValue::from_str(&cookie.to_string()).unwrap())],

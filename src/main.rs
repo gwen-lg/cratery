@@ -17,7 +17,6 @@ use cookie::Key;
 use futures::io;
 use log::{SetLoggerError, info};
 use thiserror::Error;
-use utils::sigterm::try_either;
 
 use crate::application::Application;
 use crate::routes::AxumState;
@@ -212,7 +211,7 @@ async fn main() -> anyhow::Result<()> {
         .context("Failed to get configuration for Standard Service Provider.")?;
     if configuration.self_role.is_worker() {
         let worker = pin!(worker::main_worker(configuration));
-        try_either(waiting_sigterm(worker).await).await?;
+        waiting_sigterm(worker).await?;
     } else {
         // standalone or master
         let application = Application::launch::<services::StandardServiceProvider>(configuration)
@@ -224,7 +223,7 @@ async fn main() -> anyhow::Result<()> {
                 .as_bytes(),
         );
         let server = pin!(main_serve_app(application, cookie_key,));
-        try_either(waiting_sigterm(server).await).await?;
+        waiting_sigterm(server).await?;
     }
     Ok(())
 }

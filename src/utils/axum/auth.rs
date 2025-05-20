@@ -136,7 +136,7 @@ impl AuthData {
         value: Cow<'data, str>,
         is_delete_flag: bool,
     ) -> Cookie<'static> {
-        let is_local = domain == "localhost";
+        let is_local = domain == "localhost" || domain == "cratery-dev";
         let mut builder = Cookie::build((name.into_owned(), value.into_owned()))
             .domain(domain.to_string())
             .path("/")

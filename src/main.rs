@@ -15,6 +15,7 @@ use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, patch, post, put};
 use cookie::Key;
 use log::{SetLoggerError, info};
+use utils::sigterm::try_either;
 
 use crate::application::Application;
 use crate::routes::AxumState;
@@ -193,7 +194,8 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("Failed to get configuration for Standard Service Provider.")?;
     if configuration.self_role.is_worker() {
-        let _ = waiting_sigterm(pin!(worker::main_worker(configuration))).await;
+        let worker = pin!(worker::main_worker(configuration));
+        try_either(waiting_sigterm(worker).await).await?;
     } else {
         // standalone or master
         let application = Application::launch::<services::StandardServiceProvider>(configuration)
@@ -205,7 +207,7 @@ async fn main() -> anyhow::Result<()> {
                 .as_bytes(),
         );
         let server = pin!(main_serve_app(application, cookie_key,));
-        let _ = waiting_sigterm(server).await;
+        try_either(waiting_sigterm(server).await).await?;
     }
     Ok(())
 }

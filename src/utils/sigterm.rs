@@ -5,7 +5,7 @@
 //! Utility to wait for the SIGTERM signal
 
 use std::future::Future;
-use std::pin::pin;
+use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -53,5 +53,18 @@ where
     match select(pin!(tokio::time::sleep(Duration::from_millis(grace_millis))), future).await {
         Either::Left(((), future)) => Either::Right(future),
         Either::Right((r, _)) => Either::Left(r),
+    }
+}
+
+///TODO: doc
+pub async fn try_either<R, E>(
+    either_error: Either<Result<R, E>, Pin<&mut (impl Future<Output = Result<R, E>>)>>,
+) -> Result<R, E>
+where
+    E: std::error::Error,
+{
+    match either_error {
+        futures::future::Either::Left(left) => left,
+        futures::future::Either::Right(right) => right.await,
     }
 }

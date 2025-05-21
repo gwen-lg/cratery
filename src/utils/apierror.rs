@@ -10,6 +10,13 @@ use std::fmt::{Display, Formatter};
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// A trait to get the `ErrorCode` corresponding to the error object.
+///
+/// Allow automatic conversion into `ApiError` (also requires implementation of the `Error` trait)
+pub trait ToErrorCode {
+    fn error_code(&self) -> u16;
+}
+
 /// Describes an API error
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ApiError {

@@ -796,21 +796,16 @@ impl Configuration {
 
     async fn write_auth_config_git_config(&self) -> Result<(), WriteAuthConfigError> {
         const GIT_CONFIG_FILENAME: &str = ".gitconfig";
-        let writer =
-            self.create_config_file(&[GIT_CONFIG_FILENAME])
-                .await
-                .map_err(|source| WriteAuthConfigError::WriteAuthConfig {
-                    source,
-                    filename: GIT_CONFIG_FILENAME,
-                })?;
+        let mk_err = |source: WriteConfigError| WriteAuthConfigError::WriteAuthConfig {
+            source,
+            filename: GIT_CONFIG_FILENAME,
+        };
+        let writer = self.create_config_file(&[GIT_CONFIG_FILENAME]).await.map_err(mk_err)?;
 
         self.write_auth_config_git_config_content(writer)
             .await
             .map_err(WriteConfigError::WriteContent)
-            .map_err(|source| WriteAuthConfigError::WriteAuthConfig {
-                source,
-                filename: GIT_CONFIG_FILENAME,
-            })
+            .map_err(mk_err)
     }
 
     /// Write the configuration for authenticating to registries
@@ -826,20 +821,16 @@ impl Configuration {
     /// Write the configuration for authenticating to registries
     async fn write_auth_config_git_credentials(&self) -> Result<(), WriteAuthConfigError> {
         const GIT_CREDENTIALS_FILENAME: &str = ".git-credentials";
-        let writer = self.create_config_file(&[GIT_CREDENTIALS_FILENAME]).await.map_err(|source| {
-            WriteAuthConfigError::WriteAuthConfig {
-                source,
-                filename: GIT_CREDENTIALS_FILENAME,
-            }
-        })?;
+        let mk_err = |source: WriteConfigError| WriteAuthConfigError::WriteAuthConfig {
+            source,
+            filename: GIT_CREDENTIALS_FILENAME,
+        };
+        let writer = self.create_config_file(&[GIT_CREDENTIALS_FILENAME]).await.map_err(mk_err)?;
 
         self.write_auth_config_git_credentials_content(writer)
             .await
             .map_err(WriteConfigError::WriteContent)
-            .map_err(|source| WriteAuthConfigError::WriteAuthConfig {
-                source,
-                filename: GIT_CREDENTIALS_FILENAME,
-            })
+            .map_err(mk_err)
     }
 
     async fn write_auth_config_git_credentials_content(
@@ -881,20 +872,18 @@ impl Configuration {
     /// Write the configuration for authenticating to registries
     async fn write_auth_cargo_config(&self) -> Result<(), WriteAuthConfigError> {
         const CARGO_CONFIG_FILENAME: &str = "config.toml";
+        let mk_err = |source: WriteConfigError| WriteAuthConfigError::WriteAuthConfig {
+            source,
+            filename: CARGO_CONFIG_FILENAME,
+        };
         let writer = self
             .create_config_file(&[".cargo", CARGO_CONFIG_FILENAME])
             .await
-            .map_err(|source| WriteAuthConfigError::WriteAuthConfig {
-                source,
-                filename: CARGO_CONFIG_FILENAME,
-            })?;
+            .map_err(mk_err)?;
         self.write_auth_config_cargo_config_content(writer)
             .await
             .map_err(WriteConfigError::WriteContent)
-            .map_err(|source| WriteAuthConfigError::WriteAuthConfig {
-                source,
-                filename: CARGO_CONFIG_FILENAME,
-            })
+            .map_err(mk_err)
     }
 
     async fn write_auth_config_cargo_config_content(
@@ -944,20 +933,18 @@ impl Configuration {
 
     async fn write_auth_config_cargo_credentials(&self) -> Result<(), WriteAuthConfigError> {
         const CARGO_CREDENTIALS_FILENAME: &str = "credentials.toml";
+        let mk_err = |source: WriteConfigError| WriteAuthConfigError::WriteAuthConfig {
+            source,
+            filename: CARGO_CREDENTIALS_FILENAME,
+        };
         let writer = self
             .create_config_file(&[".cargo", CARGO_CREDENTIALS_FILENAME])
             .await
-            .map_err(|source| WriteAuthConfigError::WriteAuthConfig {
-                source,
-                filename: CARGO_CREDENTIALS_FILENAME,
-            })?;
+            .map_err(mk_err)?;
         self.write_auth_config_cargo_credentials_content(writer)
             .await
             .map_err(WriteConfigError::WriteContent)
-            .map_err(|source| WriteAuthConfigError::WriteAuthConfig {
-                source,
-                filename: CARGO_CREDENTIALS_FILENAME,
-            })
+            .map_err(mk_err)
     }
 
     /// Write the configuration for authenticating to registries

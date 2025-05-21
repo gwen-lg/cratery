@@ -14,7 +14,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::fs::File;
+use tokio::fs::{self, File};
 use tokio::io::{self, AsyncWrite, AsyncWriteExt, BufWriter};
 use tokio::process::Command;
 
@@ -784,7 +784,19 @@ impl Configuration {
     }
 
     async fn create_config_file(&self, path: &[&str]) -> Result<BufWriter<File>, WriteConfigError> {
-        let file = File::create(self.get_home_path_for(path)).await?;
+        let path = self.get_home_path_for(path);
+        let parent_path = path
+            .parent()
+            .ok_or_else(|| WriteConfigError::ParentPath { path: path.clone() })?;
+        if !parent_path.exists() {
+            fs::create_dir(parent_path)
+                .await
+                .map_err(|source| WriteConfigError::CreateDir {
+                    source,
+                    path: parent_path.to_path_buf(),
+                })?;
+        }
+        let file = File::create(path).await?;
         Ok(BufWriter::new(file))
     }
 

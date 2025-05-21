@@ -214,9 +214,7 @@ async fn main() -> anyhow::Result<()> {
         waiting_sigterm(worker).await?;
     } else {
         // standalone or master
-        let application = Application::launch::<services::StandardServiceProvider>(configuration)
-            .await
-            .unwrap();
+        let application = Application::launch::<services::StandardServiceProvider>(configuration).await?;
         let cookie_key = Key::from(
             std::env::var("REGISTRY_WEB_COOKIE_SECRET")
                 .expect("REGISTRY_WEB_COOKIE_SECRET must be set")

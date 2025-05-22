@@ -194,8 +194,8 @@ impl Database {
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await
         .map_err(|source| UserError::SqlxGetUserProfile { source, uid })?;
-        let _ = maybe_row.ok_or(UserError::UserNotFound { uid });
-        Err(UserError::TestErrorWithParent(anyhow::Error::msg("custom error for test")))
+        maybe_row.ok_or(UserError::UserNotFound { uid }) // let _ = 
+        //Err(UserError::TestErrorWithParent(anyhow::Error::msg("custom error for test")))
     }
 
     /// Attempts to login using an OAuth code

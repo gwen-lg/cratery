@@ -37,6 +37,21 @@ pub enum UserError {
     UserNotFound { uid: i64 },
 }
 
+#[derive(Debug, Error)]
+pub enum OAuthLoginError {
+    #[error("not managed error")]
+    Any(#[from] anyhow::Error),
+
+    #[error("authentication failed with configuration :\n{0}")]
+    AuthenticationFailed(String),
+
+    #[error("inactive user")]
+    InactiveUser,
+
+    #[error("no email in returned user info:\n{0}")]
+    EmailMissingInUserInfo(String),
+}
+
 impl Database {
     /// Retrieves a user profile
     pub async fn get_user_profile(&self, uid: i64) -> Result<RegistryUser, UserError> {
@@ -52,7 +67,11 @@ impl Database {
     }
 
     /// Attempts to login using an OAuth code
-    pub async fn login_with_oauth_code(&self, configuration: &Configuration, code: &str) -> Result<RegistryUser, ApiError> {
+    pub async fn login_with_oauth_code(
+        &self,
+        configuration: &Configuration,
+        code: &str,
+    ) -> Result<RegistryUser, OAuthLoginError> {
         let client = reqwest::Client::new();
         // retrieve the token
         let response = client
@@ -66,25 +85,31 @@ impl Database {
             ])
             .header(reqwest::header::ACCEPT, "application/json")
             .send()
-            .await?;
+            .await
+            .map_err(|source| OAuthLoginError::Any(source.into()))?;
         if !response.status().is_success() {
-            return Err(specialize(error_unauthorized(), String::from("authentication failed")));
+            return Err(OAuthLoginError::AuthenticationFailed(format!("{:#?}", configuration)));
+            //return Err(specialize(error_unauthorized(), String::from("authentication failed")));
         }
-        let body = response.bytes().await?;
-        let token = serde_json::from_slice::<OAuthToken>(&body)?;
+        let body = response.bytes().await.map_err(|source| OAuthLoginError::Any(source.into()))?;
+        let token = serde_json::from_slice::<OAuthToken>(&body).map_err(|source| OAuthLoginError::Any(source.into()))?;
 
         // retrieve the user profile
         let response = client
             .get(&configuration.oauth_userinfo_uri)
             .header("authorization", format!("Bearer {}", token.access_token))
             .send()
-            .await?;
+            .await
+            .map_err(|source| OAuthLoginError::Any(source.into()))?;
         if !response.status().is_success() {
-            return Err(specialize(error_unauthorized(), String::from("authentication failed")));
+            return Err(OAuthLoginError::AuthenticationFailed(format!("{:#?}", configuration)));
+            //return Err(specialize(error_unauthorized(), String::from("authentication failed")));
         }
-        let body = response.bytes().await?;
-        let user_info = serde_json::from_slice::<serde_json::Value>(&body)?;
-        let email = find_field_in_blob(&user_info, &configuration.oauth_userinfo_path_email).ok_or_else(error_unauthorized)?;
+        let body = response.bytes().await.map_err(|source| OAuthLoginError::Any(source.into()))?;
+        let user_info =
+            serde_json::from_slice::<serde_json::Value>(&body).map_err(|source| OAuthLoginError::Any(source.into()))?;
+        let email = find_field_in_blob(&user_info, &configuration.oauth_userinfo_path_email)
+            .ok_or_else(|| OAuthLoginError::EmailMissingInUserInfo(user_info.to_string()))?;
 
         // resolve the user
         let row = sqlx::query!(
@@ -92,10 +117,12 @@ impl Database {
             email
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
-        .await?;
+        .await
+        .map_err(|source| OAuthLoginError::Any(source.into()))?;
         if let Some(row) = row {
             if !row.is_active {
-                return Err(specialize(error_unauthorized(), String::from("inactive user")));
+                return Err(OAuthLoginError::InactiveUser);
+                //return Err(specialize(error_unauthorized(), String::from("inactive user")));
             }
             // already exists
             return Ok(RegistryUser {
@@ -110,12 +137,14 @@ impl Database {
         // create the user
         let count = sqlx::query!("SELECT COUNT(id) AS count FROM RegistryUser")
             .fetch_one(&mut *self.transaction.borrow().await)
-            .await?
+            .await
+            .map_err(|source| OAuthLoginError::Any(source.into()))?
             .count;
         let mut login = email[..email.find('@').unwrap()].to_string();
         while sqlx::query!("SELECT COUNT(id) AS count FROM RegistryUser WHERE login = $1", login)
             .fetch_one(&mut *self.transaction.borrow().await)
-            .await?
+            .await
+            .map_err(|source| OAuthLoginError::Any(source.into()))?
             .count
             != 0
         {
@@ -131,7 +160,8 @@ impl Database {
             roles
         )
         .fetch_one(&mut *self.transaction.borrow().await)
-        .await?
+        .await
+        .map_err(|source| OAuthLoginError::Any(source.into()))?
         .id;
         Ok(RegistryUser {
             id,

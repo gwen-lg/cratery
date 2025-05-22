@@ -11,6 +11,7 @@ pub mod stats;
 pub mod users;
 
 use std::future::Future;
+use thiserror::Error;
 
 use crate::application::AuthenticationError;
 use crate::model::auth::ROLE_ADMIN;
@@ -57,13 +58,20 @@ where
 /// # Errors
 ///
 /// Returns an instance of the `E` type argument
-pub async fn db_transaction_write<F, FUT, T, E>(pool: &RwSqlitePool, operation: &'static str, workload: F) -> Result<T, E>
+pub async fn db_transaction_write<F, FUT, T, E>(
+    pool: &RwSqlitePool,
+    operation: &'static str,
+    workload: F,
+) -> Result<T, DbWriteError>
 where
     F: FnOnce(Database) -> FUT,
     FUT: Future<Output = Result<T, E>>,
-    E: From<sqlx::Error>,
+    E: std::error::Error + std::marker::Send + std::marker::Sync + 'static,
 {
-    let transaction = pool.acquire_write(operation).await?;
+    let transaction = pool
+        .acquire_write(operation)
+        .await
+        .map_err(|source| DbWriteError::AcquireWrite { source, operation })?;
     let result = {
         let database = Database {
             transaction: transaction.clone(),
@@ -73,15 +81,79 @@ where
     let transaction = transaction.into_original().unwrap();
     match result {
         Ok(t) => {
-            transaction.commit().await?;
+            transaction
+                .commit()
+                .await
+                .map_err(|source| DbWriteError::Commit { source, operation })?;
             Ok(t)
         }
         Err(error) => {
-            transaction.rollback().await?;
-            Err(error)
+            let workload_err = anyhow::Error::new(error);
+            transaction.rollback().await.map_err(|source| DbWriteError::Rollback {
+                source,
+                operation,
+                error: workload_err.to_string(),
+            })?;
+            Err(DbWriteError::Workload {
+                source: workload_err,
+                operation,
+            })
         }
     }
 }
+
+//TODO: document, en move earlier in file
+#[derive(Debug, Error)]
+pub enum DbWriteError {
+    #[error("Failed to acquire write for operation `{operation}`")]
+    AcquireWrite {
+        #[source]
+        source: sqlx::Error,
+        operation: &'static str,
+    },
+
+    #[error("Error in workload for operation `{operation}`")]
+    Workload {
+        #[source]
+        source: anyhow::Error,
+        operation: &'static str,
+    },
+
+    #[error("Failed to commit operation `{operation}`")]
+    Commit {
+        #[source]
+        source: sqlx::Error,
+        operation: &'static str,
+    },
+
+    #[error("Failed to rollback operation `{operation}` after error :\n{error}")]
+    Rollback {
+        #[source]
+        source: sqlx::Error,
+        operation: &'static str,
+        error: String, //TODO: manage this better ?
+    },
+}
+
+//TODO: use ApiErrorNext ?
+// conflict with From<T> for ApiError
+// impl Into<ApiError> for DbWriteError {
+//     fn into(self) -> ApiError {
+//         //TODO: write info to log with uuid and print uuid in error to write to client
+//         match self {
+//             DbWriteError::AcquireWrite { .. } => ApiError::new(500, "TODO: write info to log", None),
+//             DbWriteError::Workload { source, operation } => {
+//                 ApiError::new(500, format!("operation `{operation}` failed with : {source}"))
+//             } //TODO: keep information for http from workload
+//             DbWriteError::Commit { source, operation } => ApiError::new(500, "TODO: write info to log", None),
+//             DbWriteError::Rollback {
+//                 source,
+//                 operation,
+//                 error,
+//             } => ApiError::new(500, "TODO: write info to log", None),
+//         }
+//     }
+// }
 
 /// Represents the application
 pub struct Database {

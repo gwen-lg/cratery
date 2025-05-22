@@ -291,8 +291,10 @@ impl Application {
 
     /// Attempts the authentication of a user
     pub async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
-        self.db_transaction_read(|app| async move { app.authenticate(auth_data).await })
-            .await
+        self.db_transaction_read(
+            |app| async move { app.authenticate(auth_data).await.map_err(AuthenticationError::into_api_error) },
+        )
+        .await
     }
 
     /// Gets the registry configuration
@@ -954,17 +956,15 @@ pub(crate) struct ApplicationWithTransaction<'a> {
 
 impl ApplicationWithTransaction<'_> {
     /// Attempts the authentication of a user
-    async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
+    async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, AuthenticationError> {
         if let Some(token) = &auth_data.token {
-            self.authenticate_token(token)
-                .await
-                .map_err(AuthenticationError::into_api_error)
+            self.authenticate_token(token).await
         } else {
             let authentication = auth_data
                 .try_authenticate_cookie()
                 .map_err(AuthenticationError::CookieDeserialization)?
                 .ok_or_else(|| AuthenticationError::CookieMissing)?;
-            let email = authentication.email().map_err(AuthenticationError::into_api_error)?;
+            let email = authentication.email()?;
             self.database.check_is_user(email).await?;
             Ok(authentication)
         }

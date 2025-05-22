@@ -35,6 +35,9 @@ pub enum UserError {
 
     #[error("User `{uid}` not found")]
     UserNotFound { uid: i64 },
+
+    #[error("UserError: Test error parent anyhow")]
+    TestErrorWithParent(#[source] anyhow::Error),
 }
 
 impl Database {
@@ -48,7 +51,8 @@ impl Database {
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await
         .map_err(|source| UserError::GetUserProfileSql { source, uid })?;
-        maybe_row.ok_or(UserError::UserNotFound { uid })
+        let _ = maybe_row.ok_or(UserError::UserNotFound { uid });
+        Err(UserError::TestErrorWithParent(anyhow::Error::msg("custom error for test")))
     }
 
     /// Attempts to login using an OAuth code

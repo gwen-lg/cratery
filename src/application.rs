@@ -25,7 +25,8 @@ use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{WorkerEvent, WorkerPublicData, WorkersManager};
 use crate::model::{AppEvent, CrateVersion, RegistryInformation};
 use crate::services::ServiceProvider;
-use crate::services::database::{Database, db_transaction_read, db_transaction_write};
+use crate::services::database::jobs::DocGenError;
+use crate::services::database::{Database, DbWriteError, db_transaction_read, db_transaction_write};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
@@ -34,7 +35,7 @@ use crate::services::rustsec::RustSecChecker;
 use crate::services::storage::Storage;
 use crate::utils::apierror::{ApiError, ToErrorCode, UnApiError, error_forbidden, error_invalid_request, specialize};
 use crate::utils::axum::auth::{AuthData, Token};
-use crate::utils::db::{MigrationError, PoolCreateError, RwSqlitePool};
+use crate::utils::db::{PoolCreateError, RwSqlitePool};
 
 #[derive(Debug, Error)]
 pub enum LaunchError {
@@ -49,7 +50,7 @@ pub enum LaunchError {
     CreateSqlitePool(#[source] PoolCreateError),
 
     #[error("failed to migrate database")]
-    DbMigrationWrite(#[source] MigrationError),
+    DbMigrationWrite(#[source] DbWriteError),
 
     #[error("failed to read Db")]
     DbRead(#[source] sqlx::Error),
@@ -57,13 +58,11 @@ pub enum LaunchError {
     #[error("failed to get `index service`")]
     GetIndex(#[source] GitIndexError),
 
-    ///TODO: convert to not use `ApiError` in parent
     #[error("failed to get JobSpecs for undocumented packages")]
-    JobSpecs(#[source] UnApiError),
+    JobSpecs(#[source] DbWriteError),
 
-    ///TODO: convert to not use `ApiError` in parent
     #[error("failed to launch doc generator for undocumented packages")]
-    DocGenerator(#[source] UnApiError),
+    DocGenerator(#[source] DbWriteError),
 }
 /// The state of this application for axum
 pub struct Application {
@@ -149,16 +148,16 @@ impl Application {
                         .set_crate_documentation(&job.package, &job.version, &job.target, false, false)
                         .await?;
                 }
-                Ok::<_, ApiError>(jobs)
+                Ok::<_, sqlx::Error>(jobs)
             },
         )
         .await
-        .map_err(|source| LaunchError::JobSpecs(source.into()))?;
+        .map_err(LaunchError::JobSpecs)?;
         for spec in &job_specs {
             service_docs_generator
                 .queue(spec, &DocGenTrigger::MissingOnLaunch)
                 .await
-                .map_err(|source| LaunchError::DocGenerator(source.into()))?;
+                .map_err(LaunchError::DocGenerator)?;
         }
 
         // deps worker
@@ -273,11 +272,15 @@ impl Application {
     /// # Errors
     ///
     /// Returns an instance of the `E` type argument
-    pub(crate) async fn db_transaction_write<'s, F, FUT, T, E>(&'s self, operation: &'static str, workload: F) -> Result<T, E>
+    pub(crate) async fn db_transaction_write<'s, F, FUT, T, E>(
+        &'s self,
+        operation: &'static str,
+        workload: F,
+    ) -> Result<T, DbWriteError>
     where
         F: FnOnce(ApplicationWithTransaction<'s>) -> FUT,
         FUT: Future<Output = Result<T, E>>,
-        E: From<sqlx::Error>,
+        E: std::error::Error + std::marker::Send + std::marker::Sync + 'static,
     {
         db_transaction_write(&self.service_db_pool, operation, |database| async move {
             workload(ApplicationWithTransaction {
@@ -336,13 +339,13 @@ impl Application {
             app.database
                 .get_user_profile(authentication.uid()?)
                 .await
-                .map_err(std::convert::Into::into) //Hack ?
+                .map_err(std::convert::Into::into) //Hack: ApiError::new(500, "TODO: fixup code, message", None)
         })
         .await
     }
 
     /// Attempts to login using an OAuth code
-    pub async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, ApiError> {
+    pub async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, DbWriteError> {
         self.db_transaction_write("login_with_oauth_code", |app| async move {
             app.database.login_with_oauth_code(&self.configuration, code).await
         })
@@ -375,6 +378,7 @@ impl Application {
             app.database.update_user(principal_uid, target, can_admin).await
         })
         .await
+        .map_err(|source| source.into())
     }
 
     /// Attempts to deactivate a user

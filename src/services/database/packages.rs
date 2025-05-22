@@ -10,8 +10,10 @@ use std::collections::hash_map::Entry;
 
 use byteorder::ByteOrder;
 use chrono::{Datelike, Duration, Local, NaiveDateTime};
+use compact_str::CompactString;
 use futures::StreamExt;
 use semver::Version;
+use thiserror::Error;
 
 use super::Database;
 use crate::model::CrateVersion;
@@ -25,6 +27,15 @@ use crate::model::packages::{CrateInfo, CrateInfoTarget, CrateInfoVersion, Crate
 use crate::model::stats::{DownloadStats, SERIES_LENGTH};
 use crate::utils::apierror::{ApiError, error_invalid_request, error_not_found, specialize};
 use crate::utils::comma_sep_to_vec;
+
+#[derive(Debug, Error)]
+pub enum DepsError {
+    #[error("TODO: deps not found : {package} v{version}")]
+    PackageNotFound { package: String, version: CompactString },
+
+    #[error(transparent)]
+    Sqlx(#[from] sqlx::Error),
+}
 
 impl Database {
     /// Search for crates
@@ -355,7 +366,7 @@ impl Database {
     }
 
     /// Gets the packages that need documentation generation
-    pub async fn get_undocumented_crates(&self, default_target: &str) -> Result<Vec<DocGenJobSpec>, ApiError> {
+    pub async fn get_undocumented_crates(&self, default_target: &str) -> Result<Vec<DocGenJobSpec>, sqlx::Error> {
         struct PackageData {
             targets: Vec<CrateInfoTarget>,
             capabilities: Vec<String>,
@@ -450,7 +461,7 @@ impl Database {
         target: &str,
         is_attempted: bool,
         is_present: bool,
-    ) -> Result<(), ApiError> {
+    ) -> Result<(), sqlx::Error> {
         let is_missing = sqlx::query!(
             "SELECT id FROM PackageVersionDocs WHERE package = $1 AND version = $2 AND target = $3 LIMIT 1",
             package,
@@ -625,7 +636,7 @@ impl Database {
         version: &str,
         has_outdated: bool,
         has_cves: bool,
-    ) -> Result<(bool, bool), ApiError> {
+    ) -> Result<(bool, bool), DepsError> {
         let now = Local::now().naive_local();
         let row = sqlx::query!(
             "SELECT depsHasOutdated AS deps_has_outdated, depsHasCVEs AS deps_has_cves
@@ -637,7 +648,10 @@ impl Database {
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?
-        .ok_or_else(error_not_found)?;
+        .ok_or_else(|| DepsError::PackageNotFound {
+            package: package.to_string(),
+            version: version.into(),
+        })?;
         let deps_has_outdated = row.deps_has_outdated;
         let deps_has_cves = row.deps_has_cves;
         sqlx::query!(

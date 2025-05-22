@@ -42,6 +42,7 @@ use crate::model::packages::{CrateInfo, CrateInfoTarget};
 use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{JobSpecification, JobUpdate, WorkerDescriptor, WorkerPublicData, WorkerRegistrationData};
 use crate::model::{AppVersion, CrateVersion, RegistryInformation};
+use crate::services::database::DbWriteError;
 use crate::services::index::Index;
 use crate::utils::apierror::{
     ApiError, error_backend_failure, error_invalid_request, error_not_found, error_unauthorized, specialize,
@@ -362,6 +363,20 @@ pub async fn api_v1_get_current_user(auth_data: AuthData, State(state): State<Ar
     response(state.application.get_current_user(&auth_data).await)
 }
 
+///TEMP: move
+pub fn response_to_error_http(error: DbWriteError) -> (StatusCode, Json<ApiError>) {
+    let error: ApiError = error.into();
+    //TODO
+    if error.http == 500 {
+        // log internal errors
+        error!("{error}");
+        if let Some(backtrace) = &error.backtrace {
+            error!("{backtrace}");
+        }
+    }
+    (StatusCode::from_u16(error.http).unwrap(), Json(error))
+}
+
 /// Attempts to login using an OAuth code
 pub async fn api_v1_login_with_oauth_code(
     mut auth_data: AuthData,
@@ -369,7 +384,11 @@ pub async fn api_v1_login_with_oauth_code(
     body: Bytes,
 ) -> Result<(StatusCode, [(HeaderName, HeaderValue); 1], Json<RegistryUser>), (StatusCode, Json<ApiError>)> {
     let code = String::from_utf8_lossy(&body);
-    let registry_user = state.application.login_with_oauth_code(&code).await.map_err(response_error)?;
+    let registry_user = state
+        .application
+        .login_with_oauth_code(&code)
+        .await
+        .map_err(response_to_error_http)?;
     let cookie = auth_data.create_id_cookie(&Authentication::new_user(registry_user.id, registry_user.email.clone()));
     trace!("api_login cookie : `{cookie}`\n\tfor user: {registry_user:?}");
     Ok((

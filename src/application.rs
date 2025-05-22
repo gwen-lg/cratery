@@ -4,6 +4,7 @@
 
 //! Main application
 
+use std::fmt::Write;
 use std::future::Future;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -1243,11 +1244,17 @@ impl AsStatusCode for AuthenticationError {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::Unauthorized | Self::CookieMissing => StatusCode::UNAUTHORIZED,
-            Self::CookieDeserialization(_)
-            | Self::GlobalToken(_)
-            | Self::UserToken(_)
-            | Self::CheckUser(_)
-            | Self::CheckRoles(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::CookieDeserialization(serde_json_error) => {
+                log_err(serde_json_error);
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
+            Self::GlobalToken(sqlx_error)
+            | Self::UserToken(sqlx_error)
+            | Self::CheckUser(sqlx_error)
+            | Self::CheckRoles(sqlx_error) => {
+                log_err(sqlx_error);
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
             Self::NoUserAuthenticated => StatusCode::BAD_REQUEST,
             Self::Forbidden | Self::AdministrationIsForbidden | Self::WriteIsForbidden => StatusCode::FORBIDDEN,
         }
@@ -1504,6 +1511,30 @@ impl AsStatusCode for CrateUpdateError {
             | Self::SetDeprecation { .. } => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
+}
+
+// log error with sources
+// TODO: move elsewhere
+fn log_err(err: &impl std::error::Error) {
+    let error_msg = fmt_err(err);
+    error!("{error_msg:#?}");
+}
+
+// format error with sources
+// TODO: move elsewhere
+fn fmt_err(err: &dyn std::error::Error) -> String {
+    let mut error = err;
+    let mut msg = format!("{err}");
+    let mut printed = false;
+    while let Some(cause) = error.source() {
+        if !printed {
+            write!(&mut msg, "\n\nCaused by:").unwrap();
+            printed = true;
+        }
+        writeln!(&mut msg, "  [n]: {error}").unwrap();
+        error = cause;
+    }
+    msg
 }
 
 #[derive(Debug, Error)]

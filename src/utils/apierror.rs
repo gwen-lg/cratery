@@ -7,30 +7,30 @@
 use std::backtrace::Backtrace;
 use std::fmt::{Display, Formatter};
 
-use serde::{Deserialize as ManDeser, Serialize as ManSer};
+//use serde::{Deserialize as ManDeser, Serialize as ManSer};
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug)]
 struct SourceError(anyhow::Error);
 
-impl<'de> ManDeser<'de> for SourceError {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        todo!()
-    }
-}
+// impl<'de> ManDeser<'de> for SourceError {
+//     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: serde::Deserializer<'de>,
+//     {
+//         todo!()
+//     }
+// }
 
-impl ManSer for SourceError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&self.0.to_string())
-    }
-}
+// impl ManSer for SourceError {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         serializer.serialize_str(&self.0.to_string())
+//     }
+// }
 
 impl<E> From<E> for SourceError
 where
@@ -51,6 +51,7 @@ pub struct ApiError {
     /// Optional details for the error
     pub details: Option<String>,
     /// Optional Error source
+    #[serde(skip_serializing, skip_deserializing)] // We don't want  source send to client
     source: Option<SourceError>,
     /// The backtrace when the error was produced
     #[serde(skip_serializing, skip_deserializing)]
@@ -72,6 +73,7 @@ impl ApiError {
     }
 }
 
+//TODO: separate to client and to log Display
 impl Display for ApiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let details = self.details.as_ref().map_or("", std::convert::AsRef::as_ref);

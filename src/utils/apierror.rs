@@ -10,6 +10,19 @@ use std::fmt::{Display, Formatter};
 use axum::http::StatusCode;
 use serde_derive::{Deserialize, Serialize};
 
+/// Helper to compatibility between `anyhow::Error` an`api::Error`or
+#[derive(Debug)]
+struct SourceError(anyhow::Error);
+
+impl<E> From<E> for SourceError
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    fn from(error: E) -> Self {
+        Self(anyhow::Error::from(error))
+    }
+}
+
 /// Describes an API error
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ApiError {
@@ -20,6 +33,9 @@ pub struct ApiError {
     pub message: String,
     /// Optional details for the error
     pub details: Option<String>,
+    /// Optional Error source
+    #[serde(skip)] // We don't want source be send to client
+    source: Option<SourceError>,
     /// The backtrace when the error was produced
     #[serde(skip)]
     pub backtrace: Option<Backtrace>,
@@ -34,26 +50,27 @@ impl ApiError {
             http,
             message: message.to_string(),
             details,
+            source: None,
             backtrace: Some(Backtrace::capture()),
         }
     }
 }
 
+//TODO: separate to client and to log Display
 impl Display for ApiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let details = self.details.as_ref().map_or("", std::convert::AsRef::as_ref);
-        write!(f, "{} ({})", &self.message, &details)
-    }
-}
-
-impl Clone for ApiError {
-    fn clone(&self) -> Self {
-        Self {
-            http: self.http,
-            message: self.message.clone(),
-            details: self.details.clone(),
-            backtrace: None,
+        write!(f, "{} ({})", &self.message, &details)?;
+        if let Some(source) = self.source.as_ref() {
+            writeln!(f)?;
+            //writeln!(f, "\t {}", source.0)
+            source
+                .0
+                .chain()
+                .enumerate()
+                .try_for_each(|(idx, err)| writeln!(f, "\t [{idx}] {err}"))?;
         }
+        Ok(())
     }
 }
 
@@ -88,11 +105,16 @@ impl AsStatusCode for tokio_tungstenite::tungstenite::Error {}
 
 impl<E> From<E> for ApiError
 where
-    E: AsStatusCode,
+    E: AsStatusCode + Into<SourceError>,
 {
     fn from(err: E) -> Self {
-        let code = err.status_code();
-        Self::new(code, "The operation failed in the backend.", Some(err.to_string()))
+        Self {
+            http: err.status_code(),
+            message: err.to_string(),
+            details: None,
+            source: Some(err.into()),
+            backtrace: Some(Backtrace::capture()),
+        }
     }
 }
 

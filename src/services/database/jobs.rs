@@ -14,6 +14,7 @@ use crate::model::docs::{DocGenJob, DocGenJobSpec, DocGenJobState, DocGenTrigger
 use crate::utils::apierror::{ApiError, error_not_found};
 use crate::utils::comma_sep_to_vec;
 
+///TODO: doc
 #[derive(Debug, Error)]
 pub enum DocGenError {
     #[error("request docgen job for {spec_package}-{spec_version}-{spec_target} with state {state}")]
@@ -36,6 +37,8 @@ pub enum DocGenError {
         spec_version: String,
         spec_target: String,
     },
+    // #[error("Test")]
+    // TestError(#[from] ApiError),
 }
 
 impl Database {

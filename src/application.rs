@@ -334,7 +334,7 @@ impl Application {
             app.database
                 .get_user_profile(authentication.uid()?)
                 .await
-                .map_err(|source| source.into()) //Hack ?
+                .map_err(std::convert::Into::into) //Hack ?
         })
         .await
     }
@@ -921,29 +921,27 @@ pub enum AuthenticationError {
 impl ToErrorCode for AuthenticationError {
     fn error_code(&self) -> u16 {
         match self {
-            Self::Unauthorized | Self::CookieMissing => 401,
-            Self::CookieDeserialization(_) => 500,
-            Self::GlobalToken(_) => 500,
-            Self::UserToken(_) => 500,
-            Self::CheckUser(_) => 500,
-            Self::NoUserAuthenticated => 400,
+            Self::Unauthorized | Self::CookieMissing => ApiError::new(401, "User is not authenticated.", None),
+            Self::CookieDeserialization(error) => {
+                log_err(&error.into());
+                ApiError::new(500, "Internal error for user authentication.", None)
+            }
+            Self::GlobalToken(error) | Self::UserToken(error) | Self::CheckUser(error) => {
+                log_err(&error.into());
+                ApiError::new(500, "Internal error for user authentication.", None)
+            }
+            Self::NoUserAuthenticated => ApiError::new(400, "The request could not be understood by the server.", None),
         }
     }
 }
 
-impl AuthenticationError {
-    fn to_api_error(&self) -> ApiError {
-        let http = self.error_code();
-        if http == 401 {
-            ApiError::new(401, "User is not authenticated.", None)
-        } else if http == 400 {
-            ApiError::new(http, "The request could not be understood by the server.", None)
-        } else {
-            // if http == 500
-            //TODO: print error in log
-            ApiError::new(http, "Internal error for user authentication.", None)
-        }
-    }
+// fn log_err<E, B>(err: E)
+// where
+//     B: Borrow<anyhow::Error>,
+//     E: Into<B> + std::error::Error,
+fn log_err(err: &anyhow::Error) {
+    //err.chain().enumerate().for_each(|(idx, err)|error!("\t{idx} "));
+    error!("{err:#?}");
 }
 
 /// The application, running with a transaction
@@ -958,13 +956,15 @@ impl ApplicationWithTransaction<'_> {
     /// Attempts the authentication of a user
     async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
         if let Some(token) = &auth_data.token {
-            self.authenticate_token(token).await.map_err(|err| err.to_api_error())
+            self.authenticate_token(token)
+                .await
+                .map_err(AuthenticationError::into_api_error)
         } else {
             let authentication = auth_data
                 .try_authenticate_cookie()
                 .map_err(AuthenticationError::CookieDeserialization)?
                 .ok_or_else(|| AuthenticationError::CookieMissing)?;
-            let email = authentication.email().map_err(|err| err.to_api_error())?;
+            let email = authentication.email().map_err(AuthenticationError::into_api_error)?;
             self.database.check_is_user(email).await?;
             Ok(authentication)
         }

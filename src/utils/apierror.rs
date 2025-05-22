@@ -10,6 +10,18 @@ use std::fmt::{Display, Formatter};
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[derive(Debug)]
+struct SourceError(anyhow::Error);
+
+impl<E> From<E> for SourceError
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    fn from(error: E) -> Self {
+        Self(anyhow::Error::from(error))
+    }
+}
+
 /// A trait to get the `ErrorCode` corresponding to the error object.
 ///
 /// Allow automatic conversion into `ApiError` (also requires implementation of the `Error` trait)
@@ -37,6 +49,9 @@ pub struct ApiError {
     pub message: String,
     /// Optional details for the error
     pub details: Option<String>,
+    /// Optional Error source
+    #[serde(skip_serializing, skip_deserializing)] // We don't want  source send to client
+    source: Option<SourceError>,
     /// The backtrace when the error was produced
     #[serde(skip_serializing, skip_deserializing)]
     pub backtrace: Option<Backtrace>,
@@ -51,15 +66,27 @@ impl ApiError {
             http,
             message: message.to_string(),
             details,
+            source: None,
             backtrace: Some(Backtrace::capture()),
         }
     }
 }
 
+//TODO: separate to client and to log Display
 impl Display for ApiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let details = self.details.as_ref().map_or("", std::convert::AsRef::as_ref);
-        write!(f, "{} ({})", &self.message, &details)
+        write!(f, "{} ({})", &self.message, &details)?;
+        if let Some(source) = self.source.as_ref() {
+            writeln!(f)?;
+            //writeln!(f, "\t {}", source.0)
+            source
+                .0
+                .chain()
+                .enumerate()
+                .try_for_each(|(idx, err)| writeln!(f, "\t [{idx}] {err}"))?;
+        }
+        Ok(())
     }
 }
 
@@ -69,6 +96,7 @@ impl Clone for ApiError {
             http: self.http,
             message: self.message.clone(),
             details: self.details.clone(),
+            source: None, //This is bad
             backtrace: None,
         }
     }
@@ -76,10 +104,17 @@ impl Clone for ApiError {
 
 impl<E> From<E> for ApiError
 where
-    E: std::error::Error,
+    E: std::error::Error + Send + Sync + 'static,
 {
     fn from(err: E) -> Self {
-        Self::new(500, "The operation failed in the backend.", Some(err.to_string()))
+        Self {
+            http: 500,
+            message: "TODO: Look parent".into(),
+            details: None,
+            source: Some(err.into()),
+            backtrace: Some(Backtrace::capture()),
+        }
+        //Self::new(500, "The operation failed in the backend.", Some(err.to_string()))
     }
 }
 

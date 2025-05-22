@@ -15,7 +15,7 @@ use crate::utils::apierror::{ApiError, error_not_found};
 use crate::utils::comma_sep_to_vec;
 
 #[derive(Debug, Error)]
-pub(crate) enum DocGenError {
+pub enum DocGenError {
     #[error("Failed to ... state {state} for {spec_package}-{spec_version}-{spec_target}")]
     SelectJob {
         #[source]

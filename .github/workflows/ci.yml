@@ -24,7 +24,10 @@ jobs:
     - name: Check fmt
       run: cargo fmt --check
     - name: "Check Cargo.toml format"
-      uses: gwen-lg/taplo@aa9565f6abd8e986a666254d556f38ae681aacc5
+      uses: gwen-lg/taplo@1c8b7de096c7694f291ed5de14f596daeed9bdf3
+      with:
+        format: true
+        lint: true
     - name: Check spelling
       uses: crate-ci/typos@master
     - name: Lint

@@ -11,6 +11,7 @@ use std::fmt::{Display, Formatter};
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Helper to compatibility between anyhow::Error and api::Error
 #[derive(Debug)]
 struct SourceError(anyhow::Error);
 

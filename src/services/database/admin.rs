@@ -14,7 +14,7 @@ use crate::utils::token::{generate_token, hash_token};
 
 impl Database {
     /// Gets the global tokens for the registry, usually for CI purposes
-    pub async fn get_global_tokens(&self) -> Result<Vec<RegistryUserToken>, ApiError> {
+    pub async fn get_global_tokens(&self) -> Result<Vec<RegistryUserToken>, sqlx::Error> {
         let rows = sqlx::query!("SELECT id, name, lastUsed AS last_used FROM RegistryGlobalToken ORDER BY id",)
             .fetch_all(&mut *self.transaction.borrow().await)
             .await?;

@@ -298,7 +298,7 @@ impl Application {
     where
         F: FnOnce(ApplicationWithTransaction<'s>) -> FUT,
         FUT: Future<Output = Result<T, E>>,
-        E: std::error::Error + std::marker::Send + std::marker::Sync + 'static,
+        E: Into<anyhow::Error>, // std::error::Error + std::marker::Send + std::marker::Sync + 'static
     {
         db_transaction_write(&self.service_db_pool, operation, |database| async move {
             workload(ApplicationWithTransaction {

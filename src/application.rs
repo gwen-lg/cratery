@@ -932,6 +932,9 @@ pub enum AuthenticationError {
     #[error("Access is forbidden for user")]
     Forbidden,
 
+    #[error("administration is forbidden for this authentication")]
+    AdministrationIsForbidden,
+
     #[error("Failed to check global token")]
     GlobalToken(#[source] sqlx::Error),
 
@@ -962,6 +965,7 @@ impl ToErrorCode for AuthenticationError {
             }
             Self::NoUserAuthenticated => ApiError::new(400, "The request could not be understood by the server.", None),
             Self::Forbidden => ApiError::new(403, "This action is forbidden to the user.", None),
+            Self::AdministrationIsForbidden => ApiError::new(403, "This action is forbidden to the user.", None),
         }
     }
 }
@@ -974,6 +978,10 @@ fn log_err(err: &anyhow::Error) {
     //err.chain().enumerate().for_each(|(idx, err)|error!("\t{idx} "));
     error!("{err:#?}");
 }
+
+#[derive(Debug, Error)]
+#[error(transparent)]
+struct CanAdminRegistryError(#[from] AuthenticationError);
 
 /// The application, running with a transaction
 pub(crate) struct ApplicationWithTransaction<'a> {
@@ -1021,7 +1029,7 @@ impl ApplicationWithTransaction<'_> {
     }
 
     /// Checks that the given authentication can perform admin tasks
-    async fn check_can_admin_registry(&self, authentication: &Authentication) -> Result<i64, ApiError> {
+    async fn check_can_admin_registry(&self, authentication: &Authentication) -> Result<i64, CanAdminRegistryError> {
         authentication.check_can_admin()?;
         let principal_uid = authentication.uid()?;
         self.database.check_is_admin(principal_uid).await?;

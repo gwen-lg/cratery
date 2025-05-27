@@ -9,7 +9,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::{
     application::AuthenticationError,
-    utils::apierror::{ApiError, error_forbidden, error_invalid_request, specialize},
+    utils::apierror::{ApiError, error_forbidden, specialize},
 };
 
 /// The admin role
@@ -60,14 +60,11 @@ impl Authentication {
     }
 
     /// Gets the uid of the associated user
-    pub fn uid(&self) -> Result<i64, ApiError> {
+    pub fn uid(&self) -> Result<i64, AuthenticationError> {
         if let AuthenticationPrincipal::User { uid, email: _ } = &self.principal {
             Ok(*uid)
         } else {
-            Err(specialize(
-                error_invalid_request(),
-                String::from("Expected a user to be authenticated"),
-            ))
+            Err(AuthenticationError::NoUserAuthenticated)
         }
     }
 

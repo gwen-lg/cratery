@@ -15,8 +15,33 @@ use thiserror::Error;
 
 use crate::application::AuthenticationError;
 use crate::model::auth::ROLE_ADMIN;
-use crate::utils::apierror::{ApiError, error_forbidden, error_not_found, specialize};
+use crate::utils::apierror::{ApiError, error_not_found};
 use crate::utils::db::{AppTransaction, RwSqlitePool};
+
+//TODO: document, en move earlier in file
+#[derive(Debug, Error)]
+pub enum DbReadError {
+    #[error("Failed to acquire read")]
+    AcquireRead {
+        #[source]
+        source: sqlx::Error,
+    },
+
+    #[error("Error in workload")]
+    Workload {
+        #[source]
+        source: anyhow::Error,
+    },
+
+    #[error("Failed to commit")]
+    Commit(#[source] sqlx::Error),
+    #[error("Failed to rollback after error :\n{error}")]
+    Rollback {
+        #[source]
+        source: sqlx::Error,
+        error: String, //TODO: manage this better ?
+    },
+}
 
 /// Executes a piece of work in the context of a transaction
 /// The transaction is committed if the operation succeed,
@@ -25,13 +50,16 @@ use crate::utils::db::{AppTransaction, RwSqlitePool};
 /// # Errors
 ///
 /// Returns an instance of the `E` type argument
-pub async fn db_transaction_read<F, FUT, T, E>(pool: &RwSqlitePool, workload: F) -> Result<T, E>
+pub async fn db_transaction_read<F, FUT, T, E>(pool: &RwSqlitePool, workload: F) -> Result<T, DbReadError>
 where
     F: FnOnce(Database) -> FUT,
     FUT: Future<Output = Result<T, E>>,
-    E: From<sqlx::Error>,
+    E: Into<anyhow::Error>,
 {
-    let transaction = pool.acquire_read().await?;
+    let transaction = pool
+        .acquire_read()
+        .await
+        .map_err(|source| DbReadError::AcquireRead { source })?;
     let result = {
         let database = Database {
             transaction: transaction.clone(),
@@ -41,14 +69,51 @@ where
     let transaction = transaction.into_original().unwrap();
     match result {
         Ok(t) => {
-            transaction.commit().await?;
+            transaction.commit().await.map_err(DbReadError::Commit)?;
             Ok(t)
         }
         Err(error) => {
-            transaction.rollback().await?;
-            Err(error)
+            let workload_err = error.into();
+            transaction.rollback().await.map_err(|source| DbReadError::Rollback {
+                source,
+                error: workload_err.to_string(),
+            })?;
+            Err(DbReadError::Workload { source: workload_err })
         }
     }
+}
+
+//TODO: document, en move earlier in file
+#[derive(Debug, Error)]
+pub enum DbWriteError {
+    #[error("Failed to acquire write for operation `{operation}`")]
+    AcquireWrite {
+        #[source]
+        source: sqlx::Error,
+        operation: &'static str,
+    },
+
+    #[error("Error in workload for operation `{operation}`")]
+    Workload {
+        #[source]
+        source: anyhow::Error,
+        operation: &'static str,
+    },
+
+    #[error("Failed to commit operation `{operation}`")]
+    Commit {
+        #[source]
+        source: sqlx::Error,
+        operation: &'static str,
+    },
+
+    #[error("Failed to rollback operation `{operation}` after error :\n{error}")]
+    Rollback {
+        #[source]
+        source: sqlx::Error,
+        operation: &'static str,
+        error: String, //TODO: manage this better ?
+    },
 }
 
 /// Executes a piece of work in the context of a transaction
@@ -100,39 +165,6 @@ where
             })
         }
     }
-}
-
-//TODO: document, en move earlier in file
-#[derive(Debug, Error)]
-pub enum DbWriteError {
-    #[error("Failed to acquire write for operation `{operation}`")]
-    AcquireWrite {
-        #[source]
-        source: sqlx::Error,
-        operation: &'static str,
-    },
-
-    #[error("Error in workload for operation `{operation}`")]
-    Workload {
-        #[source]
-        source: anyhow::Error,
-        operation: &'static str,
-    },
-
-    #[error("Failed to commit operation `{operation}`")]
-    Commit {
-        #[source]
-        source: sqlx::Error,
-        operation: &'static str,
-    },
-
-    #[error("Failed to rollback operation `{operation}` after error :\n{error}")]
-    Rollback {
-        #[source]
-        source: sqlx::Error,
-        operation: &'static str,
-        error: String, //TODO: manage this better ?
-    },
 }
 
 //TODO: use ApiErrorNext ?

@@ -31,7 +31,7 @@ use crate::utils::apierror::{ApiError, error_backend_failure, error_invalid_requ
 use crate::utils::concurrent::n_at_a_time;
 use crate::utils::db::RwSqlitePool;
 
-use super::database::jobs::DocGenError;
+use super::database::DbWriteError;
 
 /// Service to generate documentation for a crate
 pub trait DocsGenerator {
@@ -46,7 +46,7 @@ pub trait DocsGenerator {
         &'a self,
         spec: &'a DocGenJobSpec,
         trigger: &'a DocGenTrigger,
-    ) -> BoxFuture<'a, Result<DocGenJob, DocGenError>>;
+    ) -> BoxFuture<'a, Result<DocGenJob, DbWriteError>>;
 
     /// Adds a listener to job updates
     fn add_listener(&self, listener: Sender<DocGenEvent>) -> FaillibleFuture<'_, ()>;
@@ -120,7 +120,7 @@ impl DocsGenerator for DocsGeneratorImpl {
         &'a self,
         spec: &'a DocGenJobSpec,
         trigger: &'a DocGenTrigger,
-    ) -> BoxFuture<'a, Result<DocGenJob, DocGenError>> {
+    ) -> BoxFuture<'a, Result<DocGenJob, DbWriteError>> {
         Box::pin(async move {
             let job = db_transaction_write(&self.service_db_pool, "create_docgen_job", |database| async move {
                 database

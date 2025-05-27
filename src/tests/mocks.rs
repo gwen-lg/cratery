@@ -19,7 +19,7 @@ use crate::model::deps::DepsAnalysis;
 use crate::model::docs::{DocGenEvent, DocGenJob, DocGenJobSpec, DocGenJobState, DocGenTrigger};
 use crate::model::osv::SimpleAdvisory;
 use crate::model::worker::WorkersManager;
-use crate::services::database::DbWriteError;
+use crate::services::database::{DbReadError, DbWriteError};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
@@ -35,6 +35,9 @@ use crate::utils::token::generate_token;
 pub struct MockService;
 
 fn resolved_default<T: Default + Send>() -> FaillibleFuture<'static, T> {
+    Box::pin(async { Ok(T::default()) })
+}
+fn resolved_default_read<T: Default + Send>() -> BoxFuture<'static, Result<T, DbReadError>> {
     Box::pin(async { Ok(T::default()) })
 }
 
@@ -129,12 +132,12 @@ impl DepsChecker for MockService {
 }
 
 impl DocsGenerator for MockService {
-    fn get_jobs(&self) -> FaillibleFuture<'_, Vec<DocGenJob>> {
-        resolved_default()
+    fn get_jobs(&self) -> BoxFuture<'_, Result<Vec<DocGenJob>, DbReadError>> {
+        resolved_default_read()
     }
 
-    fn get_job_log(&self, _job_id: i64) -> FaillibleFuture<'_, String> {
-        resolved_default()
+    fn get_job_log(&self, _job_id: i64) -> BoxFuture<'_, Result<String, DbReadError>> {
+        resolved_default_read()
     }
 
     fn queue<'a>(

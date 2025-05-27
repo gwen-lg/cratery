@@ -4,6 +4,7 @@
 
 //! Main application
 
+use std::backtrace::BacktraceStatus;
 use std::future::Future;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -23,9 +24,10 @@ use crate::model::docs::{DocGenEvent, DocGenJob, DocGenJobSpec, DocGenTrigger};
 use crate::model::packages::{CrateInfo, CrateInfoTarget};
 use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{WorkerEvent, WorkerPublicData, WorkersManager};
-use crate::model::{AppEvent, CrateVersion, RegistryInformation};
+use crate::model::{AppEvent, CrateVersion, RegistryInformation, errors};
 use crate::services::ServiceProvider;
 use crate::services::database::jobs::DocGenError;
+use crate::services::database::packages::DepsError;
 use crate::services::database::{Database, DbWriteError, db_transaction_read, db_transaction_write};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
@@ -216,7 +218,9 @@ impl Application {
             }
             if let Err(e) = self.events_handler_handle(&events).await {
                 error!("{e}");
-                if let Some(backtrace) = e.backtrace {
+                let err = anyhow::Error::from(e);
+                let backtrace = err.backtrace();
+                if backtrace.status() == BacktraceStatus::Captured {
                     error!("{backtrace}");
                 }
             }
@@ -225,19 +229,33 @@ impl Application {
     }
 
     /// Handles a set of events
-    async fn events_handler_handle(&self, events: &[AppEvent]) -> Result<(), ApiError> {
+    async fn events_handler_handle(&self, events: &[AppEvent]) -> Result<(), DbWriteError> {
+        #[derive(Debug, Error)]
+        enum EventHandlerError {
+            #[error("Failed to update token last usage")]
+            UpdateTokenUsage(#[source] sqlx::Error),
+            #[error("Failed to increment crate version download count")]
+            CrateDownload(#[source] DepsError),
+        }
+
         self.db_transaction_write("events_handler_handle", |app| async move {
             for event in events {
                 match event {
                     AppEvent::TokenUse(usage) => {
-                        app.database.update_token_last_usage(usage).await?;
+                        app.database
+                            .update_token_last_usage(usage)
+                            .await
+                            .map_err(EventHandlerError::UpdateTokenUsage)?;
                     }
                     AppEvent::CrateDownload(CrateVersion { package: name, version }) => {
-                        app.database.increment_crate_version_dl_count(name, version).await?;
+                        app.database
+                            .increment_crate_version_dl_count(name, version)
+                            .await
+                            .map_err(EventHandlerError::CrateDownload)?;
                     }
                 }
             }
-            Ok::<_, ApiError>(())
+            Ok::<_, EventHandlerError>(())
         })
         .await
     }

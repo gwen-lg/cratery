@@ -668,7 +668,7 @@ impl Database {
     }
 
     /// Increments the counter of downloads for a crate version
-    pub async fn increment_crate_version_dl_count(&self, package: &str, version: &str) -> Result<(), ApiError> {
+    pub async fn increment_crate_version_dl_count(&self, package: &str, version: &str) -> Result<(), DepsError> {
         let row = sqlx::query!(
             "SELECT downloads FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
             package,
@@ -676,7 +676,10 @@ impl Database {
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?
-        .ok_or_else(error_not_found)?;
+        .ok_or_else(|| DepsError::PackageNotFound {
+            package: package.to_string(),
+            version: version.into(),
+        })?; // error_not_found
         let mut downloads = row.downloads.unwrap_or_else(|| vec![0; size_of::<u32>() * SERIES_LENGTH]);
         let day_index = (Local::now().naive_local().ordinal0() as usize % SERIES_LENGTH) * size_of::<u32>();
         let count = byteorder::NativeEndian::read_u32(&downloads[day_index..]);

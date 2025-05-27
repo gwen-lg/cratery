@@ -6,11 +6,21 @@
 //! API related to administration of the registry itself
 
 use chrono::Local;
+use thiserror::Error;
 
 use super::Database;
 use crate::model::auth::{RegistryUserToken, RegistryUserTokenWithSecret};
-use crate::utils::apierror::{ApiError, error_invalid_request, specialize};
 use crate::utils::token::{generate_token, hash_token};
+
+#[derive(Debug, Error)]
+pub enum TokensError {
+    ///TODO: replace with dedicated error
+    #[error(transparent)]
+    Sqlx(#[from] sqlx::Error),
+
+    #[error("a token with the same name already exists")]
+    TokenNameExist, //error_invalid_request(),
+}
 
 impl Database {
     /// Gets the global tokens for the registry, usually for CI purposes
@@ -31,15 +41,12 @@ impl Database {
     }
 
     /// Creates a global token for the registry
-    pub async fn create_global_token(&self, name: &str) -> Result<RegistryUserTokenWithSecret, ApiError> {
+    pub async fn create_global_token(&self, name: &str) -> Result<RegistryUserTokenWithSecret, TokensError> {
         let row = sqlx::query!("SELECT id FROM RegistryGlobalToken WHERE name = $1 LIMIT 1", name)
             .fetch_optional(&mut *self.transaction.borrow().await)
             .await?;
         if row.is_some() {
-            return Err(specialize(
-                error_invalid_request(),
-                String::from("a token with the same name already exists"),
-            ));
+            return Err(TokensError::TokenNameExist);
         }
         let token_secret = generate_token(64);
         let token_hash = hash_token(&token_secret);
@@ -64,7 +71,7 @@ impl Database {
     }
 
     /// Revokes a global token for the registry
-    pub async fn revoke_global_token(&self, token_id: i64) -> Result<(), ApiError> {
+    pub async fn revoke_global_token(&self, token_id: i64) -> Result<(), sqlx::Error> {
         sqlx::query!("DELETE FROM RegistryGlobalToken WHERE id = $1", token_id)
             .execute(&mut *self.transaction.borrow().await)
             .await?;

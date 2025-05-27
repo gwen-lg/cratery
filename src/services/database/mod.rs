@@ -184,9 +184,13 @@ impl Database {
     }
 
     /// Checks that a user is an admin
-    pub async fn check_is_admin(&self, uid: i64) -> Result<(), ApiError> {
+    pub async fn check_is_admin(&self, uid: i64) -> Result<(), AuthenticationError> {
         let is_admin = self.get_is_admin(uid).await?;
-        if is_admin { Ok(()) } else { Err(error_forbidden()) }
+        if is_admin {
+            Ok(())
+        } else {
+            Err(AuthenticationError::AdministrationIsForbidden)
+        }
     }
 
     /// Checks that a package exists

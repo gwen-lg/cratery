@@ -1007,7 +1007,7 @@ pub async fn index_serve_check_auth(
     application
         .authenticate(auth_data)
         .await
-        .map_err(|e| index_serve_map_err(e, &application.configuration.web_domain))?;
+        .map_err(|e| index_serve_map_err(e.into(), &application.configuration.web_domain))?;
     Ok(())
 }
 

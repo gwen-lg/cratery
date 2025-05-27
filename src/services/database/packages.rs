@@ -187,7 +187,7 @@ impl Database {
             package
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
-        .await?
+        .await? //TODO: Add a dedicated error ?
         .ok_or_else(|| CratesError::PackageNotFound { package: package.into() })?;
         Ok(row.version)
     }

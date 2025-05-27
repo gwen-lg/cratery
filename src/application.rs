@@ -321,10 +321,9 @@ impl Application {
     }
 
     /// Attempts the authentication of a user
-    pub async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
+    pub async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, DbReadError> {
         self.db_transaction_read(|app| async move { app.authenticate(auth_data).await })
             .await
-            .map_err(ApiError::from)
     }
 
     /// Gets the registry configuration
@@ -631,6 +630,7 @@ impl Application {
                 Ok::<_, CrateUpdateError>((user, result, targets, capabilities))
             })
             .await
+            .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
         }?;
 
         self.service_storage.store_crate(&package.metadata, package.content).await?;

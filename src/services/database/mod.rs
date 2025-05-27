@@ -233,6 +233,7 @@ impl Database {
     }
 
     /// Checks that a package exists
+    /// TODO: why it's not in packages.rs ?
     pub async fn check_crate_exists(&self, package: &str, version: &str) -> Result<(), CratesError> {
         let _row = sqlx::query!(
             "SELECT id FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
@@ -240,7 +241,7 @@ impl Database {
             version
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
-        .await?
+        .await? //TODO: add dedicated error ?
         .ok_or_else(|| CratesError::PackageVersionNotFound {
             package: package.into(),
             version: version.into(),

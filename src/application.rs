@@ -940,22 +940,16 @@ pub enum AuthenticationError {
 impl AuthenticationError {
     fn into_api_error(self) -> ApiError {
         match self {
-            AuthenticationError::Unauthorized | AuthenticationError::CookieMissing => {
-                ApiError::new(401, "User is not authenticated.", None)
-            }
-            AuthenticationError::CookieDeserialization(error) => {
+            Self::Unauthorized | Self::CookieMissing => ApiError::new(401, "User is not authenticated.", None),
+            Self::CookieDeserialization(error) => {
                 log_err(&error.into());
                 ApiError::new(500, "Internal error for user authentication.", None)
             }
-            AuthenticationError::GlobalToken(error)
-            | AuthenticationError::UserToken(error)
-            | AuthenticationError::CheckUser(error) => {
+            Self::GlobalToken(error) | Self::UserToken(error) | Self::CheckUser(error) => {
                 log_err(&error.into());
                 ApiError::new(500, "Internal error for user authentication.", None)
             }
-            AuthenticationError::NoUserAuthenticated => {
-                ApiError::new(400, "The request could not be understood by the server.", None)
-            }
+            Self::NoUserAuthenticated => ApiError::new(400, "The request could not be understood by the server.", None),
         }
     }
 }

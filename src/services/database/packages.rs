@@ -15,17 +15,18 @@ use futures::StreamExt;
 use semver::Version;
 use thiserror::Error;
 
-use super::Database;
+use super::users::UserError;
+use super::{Database, IsCrateManagerError};
+use crate::application::AuthenticationError;
 use crate::model::CrateVersion;
 use crate::model::cargo::{
-    CrateUploadData, CrateUploadResult, IndexCrateMetadata, OwnersQueryResult, RegistryUser, SearchResultCrate, SearchResults,
-    SearchResultsMeta, YesNoMsgResult, YesNoResult,
+    CrateNameError, CrateUploadData, CrateUploadResult, IndexCrateMetadata, OwnersQueryResult, RegistryUser, SearchResultCrate,
+    SearchResults, SearchResultsMeta, YesNoMsgResult, YesNoResult,
 };
 use crate::model::deps::{DepsAnalysisJobSpec, DepsAnalysisState};
 use crate::model::docs::DocGenJobSpec;
 use crate::model::packages::{CrateInfo, CrateInfoTarget, CrateInfoVersion, CrateInfoVersionDocs};
 use crate::model::stats::{DownloadStats, SERIES_LENGTH};
-use crate::utils::apierror::{ApiError, error_invalid_request, error_not_found, specialize};
 use crate::utils::comma_sep_to_vec;
 
 #[derive(Debug, Error)]
@@ -37,13 +38,68 @@ pub enum DepsError {
     Sqlx(#[from] sqlx::Error),
 }
 
+//TODO: create a struct helper for package + version
 #[derive(Debug, Error)]
 pub enum CratesError {
     #[error("TODO: crate not found : {package}")]
     PackageNotFound { package: String }, //error_not_found
 
+    #[error("Package {package}, version {version} not found")]
+    PackageVersionNotFound { package: String, version: CompactString }, //error_not_found
+
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
+
+    #[error(transparent)]
+    CrateManager(#[from] IsCrateManagerError), //TODO: use dedicated error ?
+
+    #[error("Package {name} already exists in version {version}, uploaded on {dest}")]
+    PackageAlreadyExistInVersion {
+        name: String,
+        version: CompactString,
+        dest: String,
+    }, // error_invalid_request(),
+
+    #[error("a package named {0} already exists")]
+    PackageAlreadyExist(String), // error_invalid_request(),
+
+    #[error("Metadata are invalid")]
+    Metadata(#[from] CrateNameError),
+
+    #[error("failed to get user info for uid `{uid}`")]
+    UserProfile {
+        #[source]
+        source: UserError,
+        uid: i64,
+    },
+    #[error("TODO: ")]
+    IsUser {
+        #[source]
+        source: AuthenticationError,
+        email: String,
+    },
+
+    #[error("Package {package} does not allow removing versions")]
+    PackageNotAllowRemoveVersion { package: String }, // error_invalid_request(),
+
+    #[error("Version {version} of crate {package} does not exist")]
+    PackageNotExistInVersion { package: String, version: CompactString }, // error_invalid_request()
+
+    #[error("Version {version} of crate {package} is already yanked")]
+    AlreadyYanked { package: String, version: CompactString }, // error_invalid_request()
+
+    #[error("Version {version} of crate {package} is not yanked")]
+    PackageVersionNotYanked { package: String, version: CompactString },
+
+    #[error("failed to parse package version `{version}`")]
+    ParseVersion {
+        #[source]
+        source: semver::Error,
+        version: CompactString,
+    },
+
+    #[error("Cannot remove all owners")]
+    RemoveAllOwners, // error_invalid_request()
 }
 
 impl Database {
@@ -53,7 +109,7 @@ impl Database {
         query: &str,
         per_page: Option<usize>,
         deprecated: Option<bool>,
-    ) -> Result<SearchResults, ApiError> {
+    ) -> Result<SearchResults, sqlx::Error> {
         let per_page = match per_page {
             None => 10,
             Some(value) if value > 100 => 100,
@@ -102,14 +158,14 @@ impl Database {
     }
 
     /// Gets the last version number for a package
-    pub async fn get_crate_last_version(&self, package: &str) -> Result<String, ApiError> {
+    pub async fn get_crate_last_version(&self, package: &str) -> Result<String, CratesError> {
         let row = sqlx::query!(
             "SELECT version, description FROM PackageVersion WHERE package = $1 AND yanked = FALSE ORDER BY id DESC LIMIT 1",
             package
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
-        .await?
-        .ok_or_else(error_not_found)?;
+        .await? //TODO: Add a dedicated error ?
+        .ok_or_else(|| CratesError::PackageNotFound { package: package.into() })?;
         Ok(row.version)
     }
 
@@ -118,14 +174,14 @@ impl Database {
         &self,
         package: &str,
         versions_in_index: Vec<IndexCrateMetadata>,
-    ) -> Result<CrateInfo, ApiError> {
+    ) -> Result<CrateInfo, CratesError> {
         let row = sqlx::query!(
             "SELECT isDeprecated AS is_deprecated, canRemove AS can_remove, targets, nativeTargets AS nativetargets, capabilities FROM Package WHERE name = $1 LIMIT 1",
             package
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?
-        .ok_or_else(error_not_found)?;
+        .ok_or_else(|| CratesError::PackageNotFound { package: package.into() })?;
         let is_deprecated = row.is_deprecated;
         let can_remove = row.can_remove;
         let targets = comma_sep_to_vec(&row.targets);
@@ -144,7 +200,13 @@ impl Database {
         let mut versions = Vec::new();
         for index_data in versions_in_index {
             if let Some(row) = rows.iter().find(|row| row.version == index_data.vers) {
-                let uploaded_by = self.get_user_profile(row.uploaded_by).await?;
+                let uploaded_by = self
+                    .get_user_profile(row.uploaded_by)
+                    .await
+                    .map_err(|source| CratesError::UserProfile {
+                        source,
+                        uid: row.uploaded_by,
+                    })?;
                 versions.push(CrateInfoVersion {
                     index: index_data,
                     upload: row.upload,
@@ -192,7 +254,7 @@ impl Database {
 
     /// Publish a crate
     #[allow(clippy::similar_names)]
-    pub async fn publish_crate_version(&self, uid: i64, package: &CrateUploadData) -> Result<CrateUploadResult, ApiError> {
+    pub async fn publish_crate_version(&self, uid: i64, package: &CrateUploadData) -> Result<CrateUploadResult, CratesError> {
         let warnings = package.metadata.validate()?;
         let lowercase = package.metadata.name.to_ascii_lowercase();
         let row = sqlx::query!(
@@ -203,13 +265,11 @@ impl Database {
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?;
         if let Some(row) = row {
-            return Err(specialize(
-                error_invalid_request(),
-                format!(
-                    "Package {} already exists in version {}, uploaded on {}",
-                    &package.metadata.name, &package.metadata.vers, row.upload
-                ),
-            ));
+            return Err(CratesError::PackageAlreadyExistInVersion {
+                name: package.metadata.name.clone(),
+                version: package.metadata.vers.clone().into(),
+                dest: row.upload.to_string(),
+            });
         }
         // check whether the package already exists
         let row = sqlx::query!("SELECT name FROM Package WHERE lowercase = $1 LIMIT 1", lowercase)
@@ -218,10 +278,7 @@ impl Database {
         if let Some(row) = row {
             // check this is the same package
             if row.name != lowercase {
-                return Err(specialize(
-                    error_invalid_request(),
-                    format!("A package named {} already exists", row.name),
-                ));
+                return Err(CratesError::PackageAlreadyExist(row.name));
             }
             // check the ownership
             self.check_is_crate_manager(uid, &package.metadata.name).await?;
@@ -260,7 +317,7 @@ impl Database {
     }
 
     /// Completely removes a version from the registry
-    pub async fn remove_crate_version(&self, package: &str, version: &str) -> Result<(), ApiError> {
+    pub async fn remove_crate_version(&self, package: &str, version: &str) -> Result<(), CratesError> {
         // check whether this is allowed
         let can_remove = sqlx::query!(
             "SELECT canRemove AS can_remove FROM Package WHERE lowercase = $1 LIMIT 1",
@@ -270,10 +327,7 @@ impl Database {
         .await?
         .is_some_and(|r| r.can_remove);
         if !can_remove {
-            return Err(specialize(
-                error_invalid_request(),
-                format!("Package {package} does not allow removing versions",),
-            ));
+            return Err(CratesError::PackageNotAllowRemoveVersion { package: package.into() });
         }
         // check version exists
         let row = sqlx::query!(
@@ -284,10 +338,10 @@ impl Database {
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?;
         if row.is_none() {
-            return Err(specialize(
-                error_not_found(),
-                format!("Package {package}, version {version} not found",),
-            ));
+            return Err(CratesError::PackageVersionNotFound {
+                package: package.into(),
+                version: version.into(),
+            });
         }
         sqlx::query!(
             "DELETE FROM PackageVersion WHERE package = $1 AND version = $2",
@@ -308,7 +362,7 @@ impl Database {
     }
 
     /// Yank a crate version
-    pub async fn yank_crate_version(&self, package: &str, version: &str) -> Result<YesNoResult, ApiError> {
+    pub async fn yank_crate_version(&self, package: &str, version: &str) -> Result<YesNoResult, CratesError> {
         let row = sqlx::query!(
             "SELECT yanked FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
             package,
@@ -317,16 +371,16 @@ impl Database {
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?;
         match row {
-            None => Err(specialize(
-                error_invalid_request(),
-                format!("Version {version} of crate {package} does not exist"),
-            )),
+            None => Err(CratesError::PackageNotExistInVersion {
+                package: package.into(),
+                version: version.into(),
+            }),
             Some(row) => {
                 if row.yanked {
-                    Err(specialize(
-                        error_invalid_request(),
-                        format!("Version {version} of crate {package} is already yanked"),
-                    ))
+                    Err(CratesError::AlreadyYanked {
+                        package: package.into(),
+                        version: version.into(),
+                    })
                 } else {
                     sqlx::query!(
                         "UPDATE PackageVersion SET yanked = TRUE WHERE package = $1 AND version = $2",
@@ -342,7 +396,7 @@ impl Database {
     }
 
     /// Unyank a crate version
-    pub async fn unyank_crate_version(&self, package: &str, version: &str) -> Result<YesNoResult, ApiError> {
+    pub async fn unyank_crate_version(&self, package: &str, version: &str) -> Result<YesNoResult, CratesError> {
         let row = sqlx::query!(
             "SELECT yanked FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
             package,
@@ -351,10 +405,10 @@ impl Database {
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?;
         match row {
-            None => Err(specialize(
-                error_invalid_request(),
-                format!("Version {version} of crate {package} does not exist"),
-            )),
+            None => Err(CratesError::PackageNotExistInVersion {
+                package: package.into(),
+                version: version.into(),
+            }),
             Some(row) => {
                 if row.yanked {
                     sqlx::query!(
@@ -366,10 +420,10 @@ impl Database {
                     .await?;
                     Ok(YesNoResult::new())
                 } else {
-                    Err(specialize(
-                        error_invalid_request(),
-                        format!("Version {version} of crate {package} is not yanked"),
-                    ))
+                    Err(CratesError::PackageVersionNotYanked {
+                        package: package.into(),
+                        version: version.into(),
+                    })
                 }
             }
         }
@@ -506,7 +560,7 @@ impl Database {
         package: &str,
         version: &str,
         default_target: &str,
-    ) -> Result<Vec<CrateInfoTarget>, ApiError> {
+    ) -> Result<Vec<CrateInfoTarget>, CratesError> {
         self.check_crate_exists(package, version).await?;
 
         let row = sqlx::query!(
@@ -515,7 +569,7 @@ impl Database {
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?
-        .ok_or_else(error_not_found)?;
+        .ok_or_else(|| CratesError::PackageNotFound { package: package.into() })?;
         let targets = comma_sep_to_vec(&row.targets);
         let native_targets = comma_sep_to_vec(&row.nativetargets);
         let targets = targets
@@ -543,7 +597,7 @@ impl Database {
 
     /// Gets the packages that need to have their dependencies analyzed
     /// Those are the latest version of each crate
-    pub async fn get_unanalyzed_crates(&self, deps_stale_analysis: i64) -> Result<Vec<DepsAnalysisJobSpec>, ApiError> {
+    pub async fn get_unanalyzed_crates(&self, deps_stale_analysis: i64) -> Result<Vec<DepsAnalysisJobSpec>, CratesError> {
         let now = Local::now().naive_local();
         let from = now - Duration::minutes(deps_stale_analysis);
         let heads = self.get_crates_version_heads().await?;
@@ -560,7 +614,7 @@ impl Database {
     }
 
     /// Gets all the packages that are outdated while also being the latest version
-    pub async fn get_crates_outdated_heads(&self) -> Result<Vec<CrateVersion>, ApiError> {
+    pub async fn get_crates_outdated_heads(&self) -> Result<Vec<CrateVersion>, CratesError> {
         let heads = self.get_crates_version_heads().await?;
         Ok(heads
             .into_iter()
@@ -575,7 +629,7 @@ impl Database {
     }
 
     /// Gets all the latest version of crates, filtering out yanked and pre-release versions
-    async fn get_crates_version_heads(&self) -> Result<Vec<DepsAnalysisState>, ApiError> {
+    async fn get_crates_version_heads(&self) -> Result<Vec<DepsAnalysisState>, CratesError> {
         struct Elem {
             semver: Version,
             version: String,
@@ -596,7 +650,10 @@ impl Database {
         while let Some(row) = stream.next().await {
             let row = row?;
             let name = row.package;
-            let semver = row.version.parse::<Version>()?;
+            let semver = row.version.parse::<Version>().map_err(|source| CratesError::ParseVersion {
+                source,
+                version: row.version.clone().into(),
+            })?;
             if semver.pre.is_empty() {
                 // not a pre-release
                 match cache.entry(name.clone()) {
@@ -707,7 +764,7 @@ impl Database {
     }
 
     /// Gets the download statistics for a crate
-    pub async fn get_crate_dl_stats(&self, package: &str) -> Result<DownloadStats, ApiError> {
+    pub async fn get_crate_dl_stats(&self, package: &str) -> Result<DownloadStats, CratesError> {
         let rows = sqlx::query!("SELECT version, downloads FROM PackageVersion WHERE package = $1", package)
             .fetch_all(&mut *self.transaction.borrow().await)
             .await?;
@@ -720,14 +777,14 @@ impl Database {
     }
 
     /// Gets the list of owners for a package
-    pub async fn get_crate_owners(&self, package: &str) -> Result<OwnersQueryResult, ApiError> {
+    pub async fn get_crate_owners(&self, package: &str) -> Result<OwnersQueryResult, CratesError> {
         let users = sqlx::query_as!(RegistryUser, "SELECT RegistryUser.id, isActive AS is_active, email, login, name, roles FROM RegistryUser INNER JOIN PackageOwner ON PackageOwner.owner = RegistryUser.id WHERE package = $1", package)
             .fetch_all(&mut *self.transaction.borrow().await).await?;
         Ok(OwnersQueryResult { users })
     }
 
     /// Add owners to a package
-    pub async fn add_crate_owners(&self, package: &str, new_users: &[String]) -> Result<YesNoMsgResult, ApiError> {
+    pub async fn add_crate_owners(&self, package: &str, new_users: &[String]) -> Result<YesNoMsgResult, CratesError> {
         // get all current owners
         let rows = sqlx::query!("SELECT owner FROM PackageOwner WHERE package = $1", package,)
             .fetch_all(&mut *self.transaction.borrow().await)
@@ -735,7 +792,10 @@ impl Database {
         // add new users
         let mut added = Vec::new();
         for new_user in new_users {
-            let new_uid = self.check_is_user(new_user).await?;
+            let new_uid = self.check_is_user(new_user).await.map_err(|source| CratesError::IsUser {
+                source,
+                email: new_user.into(),
+            })?;
             if rows.iter().all(|r| r.owner != new_uid) {
                 // not already an owner
                 sqlx::query!("INSERT INTO PackageOwner (package, owner) VALUES ($1, $2)", package, new_uid)
@@ -753,7 +813,7 @@ impl Database {
     }
 
     /// Remove owners from a package
-    pub async fn remove_crate_owners(&self, package: &str, old_users: &[String]) -> Result<YesNoResult, ApiError> {
+    pub async fn remove_crate_owners(&self, package: &str, old_users: &[String]) -> Result<YesNoResult, CratesError> {
         // get all current owners
         let rows = sqlx::query!("SELECT owner FROM PackageOwner WHERE package = $1", package,)
             .fetch_all(&mut *self.transaction.borrow().await)
@@ -761,7 +821,10 @@ impl Database {
         let mut current_owners: Vec<i64> = rows.into_iter().map(|r| r.owner).collect();
         // remove old users
         for old_user in old_users {
-            let old_uid = self.check_is_user(old_user).await?;
+            let old_uid = self.check_is_user(old_user).await.map_err(|source| CratesError::IsUser {
+                source,
+                email: old_user.into(),
+            })?;
             let index = current_owners
                 .iter()
                 .enumerate()
@@ -770,7 +833,7 @@ impl Database {
             if let Some(index) = index {
                 if current_owners.len() == 1 {
                     // cannot remove the last one
-                    return Err(specialize(error_invalid_request(), String::from("Cannot remove all owners")));
+                    return Err(CratesError::RemoveAllOwners);
                 }
                 // not already an owner
                 sqlx::query!("DELETE FROM PackageOwner WHERE package = $1 AND owner = $2", package, old_uid)
@@ -783,14 +846,14 @@ impl Database {
     }
 
     /// Gets the targets for a crate
-    pub async fn get_crate_targets(&self, package: &str) -> Result<Vec<CrateInfoTarget>, ApiError> {
+    pub async fn get_crate_targets(&self, package: &str) -> Result<Vec<CrateInfoTarget>, CratesError> {
         let row = sqlx::query!(
             "SELECT targets, nativeTargets AS nativetargets FROM Package WHERE name = $1 LIMIT 1",
             package
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await?
-        .ok_or_else(error_not_found)?;
+        .ok_or_else(|| CratesError::PackageNotFound { package: package.into() })?;
         let targets = comma_sep_to_vec(&row.targets);
         let native_targets = comma_sep_to_vec(&row.nativetargets);
         Ok(targets
@@ -803,7 +866,11 @@ impl Database {
     }
 
     /// Sets the targets for a crate
-    pub async fn set_crate_targets(&self, package: &str, targets: &[CrateInfoTarget]) -> Result<Vec<DocGenJobSpec>, ApiError> {
+    pub async fn set_crate_targets(
+        &self,
+        package: &str,
+        targets: &[CrateInfoTarget],
+    ) -> Result<Vec<DocGenJobSpec>, CratesError> {
         let old_targets = self.get_crate_targets(package).await?;
         let added_targets = targets
             .iter()

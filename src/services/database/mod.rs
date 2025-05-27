@@ -66,7 +66,7 @@ pub async fn db_transaction_write<F, FUT, T, E>(
 where
     F: FnOnce(Database) -> FUT,
     FUT: Future<Output = Result<T, E>>,
-    E: std::error::Error + std::marker::Send + std::marker::Sync + 'static,
+    E: Into<anyhow::Error>, //std::error::Error + std::marker::Send + std::marker::Sync + 'static,
 {
     let transaction = pool
         .acquire_write(operation)
@@ -88,7 +88,7 @@ where
             Ok(t)
         }
         Err(error) => {
-            let workload_err = anyhow::Error::new(error);
+            let workload_err = error.into();
             transaction.rollback().await.map_err(|source| DbWriteError::Rollback {
                 source,
                 operation,

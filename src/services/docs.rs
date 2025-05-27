@@ -31,15 +31,15 @@ use crate::utils::apierror::{ApiError, error_backend_failure, error_invalid_requ
 use crate::utils::concurrent::n_at_a_time;
 use crate::utils::db::RwSqlitePool;
 
-use super::database::DbWriteError;
+use super::database::{DbReadError, DbWriteError};
 
 /// Service to generate documentation for a crate
 pub trait DocsGenerator {
     /// Gets all the jobs
-    fn get_jobs(&self) -> FaillibleFuture<'_, Vec<DocGenJob>>;
+    fn get_jobs(&self) -> BoxFuture<'_, Result<Vec<DocGenJob>, DbReadError>>;
 
     /// Gets the log for a job
-    fn get_job_log(&self, job_id: i64) -> FaillibleFuture<'_, String>;
+    fn get_job_log(&self, job_id: i64) -> BoxFuture<'_, Result<String, DbReadError>>;
 
     /// Queues a job for documentation generation
     fn queue<'a>(
@@ -93,7 +93,7 @@ struct DocsGeneratorImpl {
 
 impl DocsGenerator for DocsGeneratorImpl {
     /// Gets all the jobs
-    fn get_jobs(&self) -> FaillibleFuture<'_, Vec<DocGenJob>> {
+    fn get_jobs(&self) -> BoxFuture<'_, Result<Vec<DocGenJob>, DbReadError>> {
         Box::pin(async move {
             db_transaction_read(
                 &self.service_db_pool,
@@ -104,7 +104,7 @@ impl DocsGenerator for DocsGeneratorImpl {
     }
 
     /// Gets the log for a job
-    fn get_job_log(&self, job_id: i64) -> FaillibleFuture<'_, String> {
+    fn get_job_log(&self, job_id: i64) -> BoxFuture<'_, Result<String, DbReadError>> {
         Box::pin(async move {
             let job = db_transaction_read(&self.service_db_pool, |database| async move {
                 database.get_docgen_job(job_id).await

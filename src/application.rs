@@ -924,6 +924,9 @@ pub enum AuthenticationError {
     #[error("User is not authenticated.")]
     Unauthorized,
 
+    #[error("Access is forbidden for user")]
+    Forbidden,
+
     #[error("Failed to check global token")]
     GlobalToken(#[source] sqlx::Error),
 
@@ -932,6 +935,9 @@ pub enum AuthenticationError {
 
     #[error("Failed to check user token")]
     CheckUser(#[source] sqlx::Error),
+
+    #[error("Failed to check user roles")]
+    CheckRoles(#[source] sqlx::Error),
 
     #[error("Expected a user to be authenticated")]
     NoUserAuthenticated,
@@ -945,11 +951,12 @@ impl AuthenticationError {
                 log_err(&error.into());
                 ApiError::new(500, "Internal error for user authentication.", None)
             }
-            Self::GlobalToken(error) | Self::UserToken(error) | Self::CheckUser(error) => {
+            Self::GlobalToken(error) | Self::UserToken(error) | Self::CheckUser(error) | Self::CheckRoles(error) => {
                 log_err(&error.into());
                 ApiError::new(500, "Internal error for user authentication.", None)
             }
             Self::NoUserAuthenticated => ApiError::new(400, "The request could not be understood by the server.", None),
+            Self::Forbidden => ApiError::new(403, "This action is forbidden to the user.", None),
         }
     }
 }

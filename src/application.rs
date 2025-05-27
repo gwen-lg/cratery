@@ -28,7 +28,7 @@ use crate::model::{AppEvent, CrateVersion, RegistryInformation, errors};
 use crate::services::ServiceProvider;
 use crate::services::database::jobs::DocGenError;
 use crate::services::database::packages::DepsError;
-use crate::services::database::{Database, DbWriteError, db_transaction_read, db_transaction_write};
+use crate::services::database::{Database, DbWriteError, IsCrateManagerError, db_transaction_read, db_transaction_write};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
@@ -930,6 +930,9 @@ pub enum AuthenticationError {
     #[error("administration is forbidden for this authentication")]
     AdministrationIsForbidden,
 
+    #[error("writing is forbidden for this authentication")]
+    WriteIsForbidden,
+
     #[error("Failed to check global token")]
     GlobalToken(#[source] sqlx::Error),
 
@@ -959,8 +962,9 @@ impl AuthenticationError {
                 ApiError::new(500, "Internal error for user authentication.", None)
             }
             Self::NoUserAuthenticated => ApiError::new(400, "The request could not be understood by the server.", None),
-            Self::Forbidden => ApiError::new(403, "This action is forbidden to the user.", None),
-            Self::AdministrationIsForbidden => ApiError::new(403, "This action is forbidden to the user.", None),
+            Self::Forbidden | Self::AdministrationIsForbidden | Self::WriteIsForbidden => {
+                ApiError::new(403, "This action is forbidden to the user.", None)
+            }
         }
     }
 }
@@ -974,9 +978,19 @@ fn log_err(err: &anyhow::Error) {
     error!("{err:#?}");
 }
 
+///TODO: docs
 #[derive(Debug, Error)]
 #[error(transparent)]
-struct CanAdminRegistryError(#[from] AuthenticationError);
+pub struct CanAdminRegistryError(#[from] AuthenticationError);
+
+#[derive(Debug, Error)]
+enum CanManageCrateError {
+    #[error(transparent)]
+    Authentication(#[from] AuthenticationError),
+
+    #[error(transparent)]
+    CrateManager(#[from] IsCrateManagerError),
+}
 
 /// The application, running with a transaction
 pub(crate) struct ApplicationWithTransaction<'a> {
@@ -1032,7 +1046,7 @@ impl ApplicationWithTransaction<'_> {
     }
 
     /// Checks that the given authentication can manage a given crate
-    async fn check_can_manage_crate(&self, authentication: &Authentication, package: &str) -> Result<i64, ApiError> {
+    async fn check_can_manage_crate(&self, authentication: &Authentication, package: &str) -> Result<i64, CanManageCrateError> {
         authentication.check_can_write()?;
         let principal_uid = authentication.uid()?;
         self.database.check_is_crate_manager(principal_uid, package).await?;

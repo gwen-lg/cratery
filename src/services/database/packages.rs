@@ -891,7 +891,8 @@ impl Database {
     }
 
     /// Sets whether a crate can have versions completely removed
-    pub async fn set_crate_can_can_remove(&self, package: &str, can_remove: bool) -> Result<(), sqlx::Error> {
+    /// Question:
+    pub async fn set_crate_can_remove(&self, package: &str, can_remove: bool) -> Result<(), sqlx::Error> {
         sqlx::query!("UPDATE Package SET canRemove = $2 WHERE name = $1", package, can_remove)
             .execute(&mut *self.transaction.borrow().await)
             .await?;

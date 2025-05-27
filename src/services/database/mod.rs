@@ -10,12 +10,12 @@ pub mod packages;
 pub mod stats;
 pub mod users;
 
+use packages::CratesError;
 use std::future::Future;
 use thiserror::Error;
 
 use crate::application::AuthenticationError;
 use crate::model::auth::ROLE_ADMIN;
-use crate::utils::apierror::{ApiError, error_not_found};
 use crate::utils::db::{AppTransaction, RwSqlitePool};
 
 //TODO: document, en move earlier in file
@@ -226,15 +226,19 @@ impl Database {
     }
 
     /// Checks that a package exists
-    pub async fn check_crate_exists(&self, package: &str, version: &str) -> Result<(), ApiError> {
+    /// TODO: why it's not in packages.rs ?
+    pub async fn check_crate_exists(&self, package: &str, version: &str) -> Result<(), CratesError> {
         let _row = sqlx::query!(
             "SELECT id FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
             package,
             version
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
-        .await?
-        .ok_or_else(error_not_found)?;
+        .await? //TODO: add dedicated error ?
+        .ok_or_else(|| CratesError::PackageVersionNotFound {
+            package: package.into(),
+            version: version.into(),
+        })?;
         Ok(())
     }
 

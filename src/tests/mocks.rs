@@ -136,8 +136,8 @@ impl DocsGenerator for MockService {
         resolved_default_read()
     }
 
-    fn get_job_log(&self, _job_id: i64) -> BoxFuture<'_, Result<String, DbReadError>> {
-        resolved_default_read()
+    fn get_job_log(&self, _job_id: i64) -> FaillibleFuture<'_, String> {
+        resolved_default()
     }
 
     fn queue<'a>(

@@ -108,7 +108,8 @@ async fn deps_worker_job(
     let jobs = db_transaction_read(pool, |database| async move {
         database.get_unanalyzed_crates(configuration.deps_stale_analysis).await
     })
-    .await?;
+    .await
+    .map_err(ApiError::from)?;
     for job in jobs {
         deps_worker_job_on_crate_version(
             configuration,

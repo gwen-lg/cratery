@@ -24,11 +24,12 @@ use crate::model::docs::{DocGenEvent, DocGenJob, DocGenJobSpec, DocGenTrigger};
 use crate::model::packages::{CrateInfo, CrateInfoTarget};
 use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{WorkerEvent, WorkerPublicData, WorkersManager};
-use crate::model::{AppEvent, CrateVersion, RegistryInformation, errors};
+use crate::model::{AppEvent, CrateVersion, RegistryInformation};
 use crate::services::ServiceProvider;
-use crate::services::database::jobs::DocGenError;
 use crate::services::database::packages::DepsError;
-use crate::services::database::{Database, DbWriteError, IsCrateManagerError, db_transaction_read, db_transaction_write};
+use crate::services::database::{
+    Database, DbReadError, DbWriteError, IsCrateManagerError, db_transaction_read, db_transaction_write,
+};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
@@ -311,11 +312,9 @@ impl Application {
     }
 
     /// Attempts the authentication of a user
-    pub async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
-        self.db_transaction_read(
-            |app| async move { app.authenticate(auth_data).await.map_err(AuthenticationError::into_api_error) },
-        )
-        .await
+    pub async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, DbReadError> {
+        self.db_transaction_read(|app| async move { app.authenticate(auth_data).await })
+            .await
     }
 
     /// Gets the registry configuration
@@ -353,13 +352,14 @@ impl Application {
     /// Gets the data about the current user
     pub async fn get_current_user(&self, auth_data: &AuthData) -> Result<RegistryUser, ApiError> {
         self.db_transaction_read(|app| async move {
-            let authentication = app.authenticate(auth_data).await?;
+            let authentication = app.authenticate(auth_data).await.map_err(anyhow::Error::from)?;
             app.database
-                .get_user_profile(authentication.uid()?)
+                .get_user_profile(authentication.uid().map_err(anyhow::Error::from)?)
                 .await
-                .map_err(std::convert::Into::into) //Hack: ApiError::new(500, "TODO: fixup code, message", None)
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Attempts to login using an OAuth code
@@ -373,11 +373,14 @@ impl Application {
     /// Gets the known users
     pub async fn get_users(&self, auth_data: &AuthData) -> Result<Vec<RegistryUser>, ApiError> {
         self.db_transaction_read(|app| async move {
-            let authentication = app.authenticate(auth_data).await?;
-            app.check_can_admin_registry(&authentication).await?;
-            app.database.get_users().await
+            let authentication = app.authenticate(auth_data).await.map_err(anyhow::Error::from)?;
+            app.check_can_admin_registry(&authentication)
+                .await
+                .map_err(anyhow::Error::from)?;
+            app.database.get_users().await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Updates the information of a user
@@ -396,7 +399,7 @@ impl Application {
             app.database.update_user(principal_uid, target, can_admin).await
         })
         .await
-        .map_err(|source| source.into())
+        .map_err(ApiError::from)
     }
 
     /// Attempts to deactivate a user
@@ -404,9 +407,13 @@ impl Application {
         self.db_transaction_write("deactivate_user", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             let principal_uid = app.check_can_admin_registry(&authentication).await?;
-            app.database.deactivate_user(principal_uid, target).await
+            app.database
+                .deactivate_user(principal_uid, target)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: add additional information ? Logs info an return an apierror with uuid
     }
 
     /// Attempts to re-activate a user
@@ -414,9 +421,10 @@ impl Application {
         self.db_transaction_write("reactivate_user", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
-            app.database.reactivate_user(target).await
+            app.database.reactivate_user(target).await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Attempts to delete a user
@@ -424,9 +432,13 @@ impl Application {
         self.db_transaction_write("delete_user", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             let principal_uid = app.check_can_admin_registry(&authentication).await?;
-            app.database.delete_user(principal_uid, target).await
+            app.database
+                .delete_user(principal_uid, target)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? Add information
     }
 
     /// Gets the tokens for a user
@@ -434,9 +446,13 @@ impl Application {
         self.db_transaction_read(|app| async move {
             let authentication = app.authenticate(auth_data).await?;
             authentication.check_can_admin()?;
-            app.database.get_tokens(authentication.uid()?).await
+            app.database
+                .get_tokens(authentication.uid()?)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Creates a token for the current user
@@ -453,8 +469,10 @@ impl Application {
             app.database
                 .create_token(authentication.uid()?, name, can_write, can_admin)
                 .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Revoke a previous token
@@ -462,9 +480,13 @@ impl Application {
         self.db_transaction_write("revoke_token", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             authentication.check_can_admin()?;
-            app.database.revoke_token(authentication.uid()?, token_id).await
+            app.database
+                .revoke_token(authentication.uid()?, token_id)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Gets the global tokens for the registry, usually for CI purposes
@@ -472,9 +494,10 @@ impl Application {
         self.db_transaction_read(|app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
-            app.database.get_global_tokens().await
+            app.database.get_global_tokens().await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Creates a global token for the registry
@@ -482,9 +505,10 @@ impl Application {
         self.db_transaction_write("create_global_token", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
-            app.database.create_global_token(name).await
+            app.database.create_global_token(name).await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Revokes a global token for the registry
@@ -492,9 +516,10 @@ impl Application {
         self.db_transaction_write("revoke_global_token", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
-            app.database.revoke_global_token(token_id).await
+            app.database.revoke_global_token(token_id).await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Publish a crate
@@ -524,9 +549,10 @@ impl Application {
                         .await?;
                 }
                 let capabilities = app.database.get_crate_required_capabilities(&package.metadata.name).await?;
-                Ok::<_, ApiError>((user, result, targets, capabilities))
+                Ok::<_, anyhow::Error>((user, result, targets, capabilities))
             })
             .await
+            .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
         }?;
 
         self.service_storage.store_crate(&package.metadata, package.content).await?;
@@ -554,10 +580,15 @@ impl Application {
             .db_transaction_read(|app| async move {
                 let _authentication = app.authenticate(auth_data).await?;
                 app.database
-                    .get_crate_info(package, self.service_index.get_crate_data(package).await?)
+                    .get_crate_info(
+                        package,
+                        self.service_index.get_crate_data(package).await.map_err(UnApiError::from)?,
+                    )
                     .await
+                    .map_err(anyhow::Error::from)
             })
-            .await?;
+            .await
+            .map_err(ApiError::from)?; //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
         let metadata = self
             .service_storage
             .download_crate_metadata(package, &info.versions.last().unwrap().index.vers)
@@ -570,10 +601,13 @@ impl Application {
         let version = self
             .db_transaction_read(|app| async move {
                 let _authentication = app.authenticate(auth_data).await?;
-                let version = app.database.get_crate_last_version(package).await?;
-                Ok::<_, ApiError>(version)
+                app.database
+                    .get_crate_last_version(package)
+                    .await
+                    .map_err(anyhow::Error::from)
             })
-            .await?;
+            .await
+            .map_err(ApiError::from)?; //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
         let readme = self.service_storage.download_crate_readme(package, &version).await?;
         Ok(readme)
     }
@@ -592,8 +626,10 @@ impl Application {
             if !public_read {
                 let _authentication = app.authenticate(auth_data).await?;
             }
-            app.database.check_crate_exists(package, version).await?;
-            Ok::<_, ApiError>(())
+            app.database
+                .check_crate_exists(package, version)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await?;
         let content = self.service_storage.download_crate(package, version).await?;
@@ -612,10 +648,14 @@ impl Application {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
             app.database.remove_crate_version(package, version).await?;
-            self.service_index.remove_crate_version(package, version).await?;
-            Ok(())
+            self.service_index
+                .remove_crate_version(package, version)
+                .await
+                .map_err(UnApiError::from)?;
+            Ok::<_, anyhow::Error>(())
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Yank a crate version
@@ -628,9 +668,13 @@ impl Application {
         self.db_transaction_write("yank_crate_version", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
-            app.database.yank_crate_version(package, version).await
+            app.database
+                .yank_crate_version(package, version)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Unyank a crate version
@@ -643,9 +687,13 @@ impl Application {
         self.db_transaction_write("unyank_crate_version", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
-            app.database.unyank_crate_version(package, version).await
+            app.database
+                .unyank_crate_version(package, version)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the packages that need documentation generation
@@ -655,14 +703,16 @@ impl Application {
             app.database
                 .get_undocumented_crates(&self.configuration.self_toolchain_host)
                 .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the documentation jobs
     pub async fn get_doc_gen_jobs(&self, auth_data: &AuthData) -> Result<Vec<DocGenJob>, ApiError> {
         let _authentication = self.authenticate(auth_data).await?;
-        self.service_docs_generator.get_jobs().await
+        self.service_docs_generator.get_jobs().await.map_err(ApiError::from) //TODO replace ApiError::from
     }
 
     /// Gets the log for a documentation generation job
@@ -696,9 +746,10 @@ impl Application {
                     .regen_crate_version_doc(package, version, &self.configuration.self_toolchain_host)
                     .await?;
                 let capabilities = app.database.get_crate_required_capabilities(package).await?;
-                Ok::<_, ApiError>((user, targets, capabilities))
+                Ok::<_, anyhow::Error>((user, targets, capabilities))
             })
-            .await?;
+            .await
+            .map_err(ApiError::from)?; //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
 
         let mut jobs = Vec::new();
         for info in targets {
@@ -724,18 +775,20 @@ impl Application {
     pub async fn get_crates_outdated_heads(&self, auth_data: &AuthData) -> Result<Vec<CrateVersion>, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
-            app.database.get_crates_outdated_heads().await
+            app.database.get_crates_outdated_heads().await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the download statistics for a crate
     pub async fn get_crate_dl_stats(&self, auth_data: &AuthData, package: &str) -> Result<DownloadStats, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
-            app.database.get_crate_dl_stats(package).await
+            app.database.get_crate_dl_stats(package).await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the list of owners for a package
@@ -745,9 +798,10 @@ impl Application {
             if !public_read {
                 let _authentication = app.authenticate(auth_data).await?;
             }
-            app.database.get_crate_owners(package).await
+            app.database.get_crate_owners(package).await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Add owners to a package
@@ -760,9 +814,13 @@ impl Application {
         self.db_transaction_write("add_crate_owners", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
-            app.database.add_crate_owners(package, new_users).await
+            app.database
+                .add_crate_owners(package, new_users)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Remove owners from a package
@@ -775,18 +833,23 @@ impl Application {
         self.db_transaction_write("remove_crate_owners", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
-            app.database.remove_crate_owners(package, old_users).await
+            app.database
+                .remove_crate_owners(package, old_users)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the targets for a crate
     pub async fn get_crate_targets(&self, auth_data: &AuthData, package: &str) -> Result<Vec<CrateInfoTarget>, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
-            app.database.get_crate_targets(package).await
+            app.database.get_crate_targets(package).await.map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Sets the targets for a crate
@@ -803,10 +866,7 @@ impl Application {
                 let user = app.database.get_user_profile(principal_uid).await?;
                 for info in targets {
                     if !self.configuration.self_known_targets.contains(&info.target) {
-                        return Err(specialize(
-                            error_invalid_request(),
-                            format!("Unknown target: {}", info.target),
-                        ));
+                        return Err(anyhow::anyhow!("Unknown target: {}", info.target)); // error_invalid_request()
                     }
                 }
                 let jobs = app.database.set_crate_targets(package, targets).await?;
@@ -815,9 +875,10 @@ impl Application {
                         .set_crate_documentation(&job.package, &job.version, &job.target, false, false)
                         .await?;
                 }
-                Ok::<_, ApiError>((user, jobs))
+                Ok::<_, anyhow::Error>((user, jobs))
             })
-            .await?;
+            .await
+            .map_err(ApiError::from)?;
         for job in jobs {
             self.service_docs_generator
                 .queue(&job, &DocGenTrigger::NewTarget { by: user.clone() })
@@ -830,9 +891,13 @@ impl Application {
     pub async fn get_crate_required_capabilities(&self, auth_data: &AuthData, package: &str) -> Result<Vec<String>, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
-            app.database.get_crate_required_capabilities(package).await
+            app.database
+                .get_crate_required_capabilities(package)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Sets the required capabilities for a crate
@@ -846,7 +911,7 @@ impl Application {
             let authentication = app.authenticate(auth_data).await?;
             let _ = app.check_can_manage_crate(&authentication, package).await?;
             app.database.set_crate_required_capabilities(package, capabilities).await?;
-            Ok::<_, ApiError>(())
+            Ok::<_, anyhow::Error>(())
         })
         .await?;
         Ok(())
@@ -856,29 +921,51 @@ impl Application {
     pub async fn set_crate_deprecation(&self, auth_data: &AuthData, package: &str, deprecated: bool) -> Result<(), ApiError> {
         self.db_transaction_write("set_crate_deprecation", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
-            app.check_can_manage_crate(&authentication, package).await?;
-            app.database.set_crate_deprecation(package, deprecated).await
+            app.check_can_manage_crate(&authentication, package)
+                .await
+                .map_err(anyhow::Error::from)?;
+            app.database
+                .set_crate_deprecation(package, deprecated)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Sets whether a crate can have versions completely removed
-    pub async fn set_crate_can_remove(&self, auth_data: &AuthData, package: &str, can_remove: bool) -> Result<(), ApiError> {
+    pub async fn set_crate_can_remove(
+        &self,
+        auth_data: &AuthData,
+        package: &str,
+        can_remove: bool,
+    ) -> Result<(), ApiError> {
         self.db_transaction_write("set_crate_can_remove", |app| async move {
-            let authentication = app.authenticate(auth_data).await?;
-            app.check_can_manage_crate(&authentication, package).await?;
-            app.database.set_crate_can_remove(package, can_remove).await
+            let authentication = app.authenticate(auth_data).await.map_err(anyhow::Error::from)?;
+            app.check_can_manage_crate(&authentication, package)
+                .await
+                .map_err(anyhow::Error::from)?;
+            app.database
+                .set_crate_can_remove(package, can_remove)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the global statistics for the registry
     pub async fn get_crates_stats(&self, auth_data: &AuthData) -> Result<GlobalStats, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
-            app.database.get_crates_stats().await
+            app.database
+                .get_crates_stats()
+                .await
+                .map_err(UnApiError::from)
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Search for crates
@@ -894,9 +981,13 @@ impl Application {
             if !public_read {
                 let _authentication = app.authenticate(auth_data).await?;
             }
-            app.database.search_crates(query, per_page, deprecated).await
+            app.database
+                .search_crates(query, per_page, deprecated)
+                .await
+                .map_err(anyhow::Error::from)
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Checks the dependencies of a local crate
@@ -910,7 +1001,7 @@ impl Application {
             .db_transaction_read(|app| async move {
                 let _authentication = app.authenticate(auth_data).await?;
                 app.database.check_crate_exists(package, version).await?;
-                app.database.get_crate_targets(package).await
+                app.database.get_crate_targets(package).await.map_err(anyhow::Error::from)
             })
             .await?;
         let targets = targets.into_iter().map(|info| info.target).collect::<Vec<_>>();

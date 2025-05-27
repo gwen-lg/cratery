@@ -51,7 +51,7 @@ pub enum LaunchError {
     DbMigrationWrite(#[source] DbWriteError),
 
     #[error("Failed to read Db")]
-    DbRead(#[source] sqlx::Error),
+    DbRead(#[source] DbReadError),
 
     ///TODO: convert to not use `ApiError` in parent
     #[error("Failed to get Index with")]
@@ -266,11 +266,11 @@ impl Application {
     /// # Errors
     ///
     /// Returns an instance of the `E` type argument
-    pub(crate) async fn db_transaction_read<'s, F, FUT, T, E>(&'s self, workload: F) -> Result<T, E>
+    pub(crate) async fn db_transaction_read<'s, F, FUT, T, E>(&'s self, workload: F) -> Result<T, DbReadError>
     where
         F: FnOnce(ApplicationWithTransaction<'s>) -> FUT,
         FUT: Future<Output = Result<T, E>>,
-        E: From<sqlx::Error>,
+        E: Into<anyhow::Error>,
     {
         db_transaction_read(&self.service_db_pool, |database| async move {
             workload(ApplicationWithTransaction {

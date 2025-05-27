@@ -207,7 +207,7 @@ impl Database {
     }
 
     /// Checks the ownership of a package
-    pub async fn check_is_crate_manager(&self, uid: i64, package: &str) -> Result<i64, ApiError> {
+    pub async fn check_is_crate_manager(&self, uid: i64, package: &str) -> Result<i64, IsCrateManagerError> {
         if self.check_is_admin(uid).await.is_ok() {
             return Ok(uid);
         }
@@ -220,10 +220,21 @@ impl Database {
         .await?;
         match row {
             Some(_) => Ok(uid),
-            None => Err(specialize(
-                error_forbidden(),
-                String::from("User is not an owner of this package"),
-            )),
+            None => Err(IsCrateManagerError::NotOwnerOfPackage),
         }
     }
+}
+
+///TODO: documentation
+#[derive(Debug, Error)]
+pub enum IsCrateManagerError {
+    #[error("Failed to execute db request.")]
+    Sqlx(#[from] sqlx::Error),
+
+    #[error("User is not an owner of this package")]
+    NotOwnerOfPackage,
+    //  specialize(
+    //     error_forbidden(),
+    //     String::from("User is not an owner of this package"),
+    // )
 }

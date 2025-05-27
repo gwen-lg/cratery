@@ -19,7 +19,6 @@ use crate::model::auth::{
 use crate::model::cargo::RegistryUser;
 use crate::model::config::Configuration;
 use crate::model::namegen::generate_name;
-use crate::utils::apierror::ApiError;
 use crate::utils::token::{check_hash, generate_token, hash_token};
 
 #[derive(Debug, Error)]
@@ -153,7 +152,7 @@ impl Database {
             .await
             .map_err(|source| OAuthLoginError::Any(source.into()))?;
         if !response.status().is_success() {
-            return Err(OAuthLoginError::AuthenticationFailed(format!("{:#?}", configuration)));
+            return Err(OAuthLoginError::AuthenticationFailed(format!("{configuration:#?}")));
             //return Err(specialize(error_unauthorized(), String::from("authentication failed")));
         }
         let body = response.bytes().await.map_err(|source| OAuthLoginError::Any(source.into()))?;
@@ -167,7 +166,7 @@ impl Database {
             .await
             .map_err(|source| OAuthLoginError::Any(source.into()))?;
         if !response.status().is_success() {
-            return Err(OAuthLoginError::AuthenticationFailed(format!("{:#?}", configuration)));
+            return Err(OAuthLoginError::AuthenticationFailed(format!("{configuration:#?}")));
             //return Err(specialize(error_unauthorized(), String::from("authentication failed")));
         }
         let body = response.bytes().await.map_err(|source| OAuthLoginError::Any(source.into()))?;

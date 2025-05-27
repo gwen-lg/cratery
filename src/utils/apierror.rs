@@ -10,6 +10,7 @@ use std::fmt::{Display, Formatter};
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Helper to compatibility between `anyhow::Error` an`api::Error`or
 #[derive(Debug)]
 struct SourceError(anyhow::Error);
 

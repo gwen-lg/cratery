@@ -37,7 +37,7 @@ pub trait DocsGenerator {
     fn get_jobs(&self) -> BoxFuture<'_, Result<Vec<DocGenJob>, DbReadError>>;
 
     /// Gets the log for a job
-    fn get_job_log(&self, job_id: i64) -> BoxFuture<'_, Result<String, DbReadError>>;
+    fn get_job_log(&self, job_id: i64) -> FaillibleFuture<'_, String>;
 
     /// Queues a job for documentation generation
     fn queue<'a>(
@@ -102,7 +102,7 @@ impl DocsGenerator for DocsGeneratorImpl {
     }
 
     /// Gets the log for a job
-    fn get_job_log(&self, job_id: i64) -> BoxFuture<'_, Result<String, DbReadError>> {
+    fn get_job_log(&self, job_id: i64) -> FaillibleFuture<'_, String> {
         Box::pin(async move {
             let job = db_transaction_read(&self.service_db_pool, |database| async move {
                 database.get_docgen_job(job_id).await
@@ -191,6 +191,7 @@ impl DocsGeneratorImpl {
             database.get_next_docgen_job().await
         })
         .await
+        .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
     }
 
     /// Implementation of the worker

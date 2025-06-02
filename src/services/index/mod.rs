@@ -6,6 +6,10 @@
 
 mod git;
 
+use futures::future::BoxFuture;
+use thiserror::Error;
+use tokio::io;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -14,6 +18,30 @@ pub use git::GitIndexError;
 use crate::model::cargo::IndexCrateMetadata;
 use crate::model::config::Configuration;
 use crate::utils::FaillibleFuture;
+
+#[derive(Debug, Error)]
+pub enum IndexError {
+    #[error("package {package} is not in this registry")]
+    PackageNotInRegistry { package: String },
+
+    #[error("failed to open `{path}`")]
+    OpenFile {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+    },
+
+    #[error("failed to read line {line_idx} in file `{path}`")]
+    ReadNextLine {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+        line_idx: usize,
+    },
+
+    #[error(transparent)]
+    GitIndexError(#[from] GitIndexError),
+}
 
 /// Index implementations
 pub trait Index {
@@ -33,7 +61,7 @@ pub trait Index {
     fn remove_crate_version<'a>(&'a self, package: &'a str, version: &'a str) -> FaillibleFuture<'a, ()>;
 
     ///  Gets the data for a crate
-    fn get_crate_data<'a>(&'a self, package: &'a str) -> FaillibleFuture<'a, Vec<IndexCrateMetadata>>;
+    fn get_crate_data<'a>(&'a self, package: &'a str) -> BoxFuture<'a, Result<Vec<IndexCrateMetadata>, IndexError>>;
 }
 
 /// Gets path elements for a package in the file system

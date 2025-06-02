@@ -645,10 +645,7 @@ impl Application {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
             app.database.remove_crate_version(package, version).await?;
-            self.service_index
-                .remove_crate_version(package, version)
-                .await
-                .map_err(UnApiError::from)?;
+            self.service_index.remove_crate_version(package, version).await?;
             Ok::<_, anyhow::Error>(())
         })
         .await

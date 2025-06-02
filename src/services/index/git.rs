@@ -38,6 +38,19 @@ pub enum GitIndexError {
         location: PathBuf,
     },
 
+    #[error("failed to open `{path}` for reading")]
+    OpenReadFile {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+    },
+    #[error("failed to open `{path}` for writing")]
+    OpenWriteFile {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+    },
+
     #[error("error during read first entry in : '{location}'")]
     ReadNextEntry {
         #[source]
@@ -90,11 +103,55 @@ pub enum GitIndexError {
     #[error("fail to write git index public config")]
     WritePublicConfig(#[source] io::Error),
 
+    #[error("failed to read `{path}`")]
+    ReadFile {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+    },
+
+    #[error("failed to read line {line_idx} in file `{path}`")]
+    ReadNextLine {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+        line_idx: usize,
+    },
+
+    #[error("failed to write into file `{path}`")]
+    WriteAll {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+    },
+
+    #[error("failed to flush file `{path}`")]
+    Flush {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+    },
+
+    #[error("failed to sync_all file `{path}`")]
+    SyncAll {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+    },
+
     #[error("failed to deserialise line `{line_idx}` : \n{line}")]
     DeserialiseLine {
+        #[source]
         source: serde_json::Error,
         line: String,
         line_idx: usize,
+    },
+
+    #[error("failed to serialise package version : `{version}`")]
+    SerializeVersion {
+        #[source]
+        source: serde_json::Error,
+        version: String,
     },
 }
 
@@ -130,7 +187,7 @@ impl Index for GitIndex {
         Box::pin(async move { self.inner.lock().await.publish_crate_version(metadata).await })
     }
 
-    fn remove_crate_version<'a>(&'a self, package: &'a str, version: &'a str) -> FaillibleFuture<'a, ()> {
+    fn remove_crate_version<'a>(&'a self, package: &'a str, version: &'a str) -> BoxFuture<'a, Result<(), IndexError>> {
         Box::pin(async move { self.inner.lock().await.remove_crate_version(package, version).await })
     }
 
@@ -338,18 +395,42 @@ impl GitIndexImpl {
     }
 
     /// Completely removes a version from the registry
-    async fn remove_crate_version(&self, package: &str, version: &str) -> Result<(), ApiError> {
+    async fn remove_crate_version(&self, package: &str, version: &str) -> Result<(), IndexError> {
         let file_name = build_package_file_path(PathBuf::from(&self.config.location), package);
-        create_dir_all(file_name.parent().unwrap()).await?;
+        create_dir_all(file_name.parent().unwrap())
+            .await
+            .map_err(|source| GitIndexError::CreateDirAll {
+                source,
+                location: file_name.parent().unwrap().to_path_buf(),
+            })?;
         // get the existing versions
         let mut versions = {
             // expect the file to be present
-            let file = OpenOptions::new().read(true).open(&file_name).await?;
+            let file = OpenOptions::new()
+                .read(true)
+                .open(&file_name)
+                .await
+                .map_err(|source| GitIndexError::ReadFile {
+                    source,
+                    path: file_name.clone(),
+                })?;
             let reader = BufReader::new(file);
             let mut lines = reader.lines();
             let mut versions = Vec::new();
-            while let Some(line) = lines.next_line().await? {
-                versions.push(serde_json::from_str::<IndexCrateMetadata>(&line)?);
+            let mut line_idx = 0;
+            while let Some(line) = lines.next_line().await.map_err(|source| GitIndexError::ReadNextLine {
+                source,
+                path: file_name.clone(),
+                line_idx,
+            })? {
+                versions.push(
+                    serde_json::from_str::<IndexCrateMetadata>(&line).map_err(|source| GitIndexError::DeserialiseLine {
+                        source,
+                        line,
+                        line_idx,
+                    })?,
+                );
+                line_idx += 1;
             }
             versions
         };
@@ -357,14 +438,37 @@ impl GitIndexImpl {
         versions.retain(|v| v.vers != version);
         // write back
         {
-            let mut file = OpenOptions::new().write(true).truncate(true).open(file_name).await?;
+            let mut file = OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(&file_name)
+                .await
+                .map_err(|source| GitIndexError::OpenWriteFile {
+                    source,
+                    path: file_name.clone(),
+                })?;
             for version in versions {
-                let buffer = serde_json::to_vec(&version)?;
-                file.write_all(&buffer).await?;
-                file.write_all(&[0x0A]).await?; // add line end
+                let buffer = serde_json::to_vec(&version).map_err(|source| GitIndexError::SerializeVersion {
+                    source,
+                    version: format!("{version:#?}"),
+                })?;
+                file.write_all(&buffer).await.map_err(|source| GitIndexError::WriteAll {
+                    source,
+                    path: file_name.clone(),
+                })?;
+                file.write_all(&[0x0A]).await.map_err(|source| GitIndexError::WriteAll {
+                    source,
+                    path: file_name.clone(),
+                })?; // add line end
             }
-            file.flush().await?;
-            file.sync_all().await?;
+            file.flush().await.map_err(|source| GitIndexError::Flush {
+                source,
+                path: file_name.clone(),
+            })?;
+            file.sync_all().await.map_err(|source| GitIndexError::SyncAll {
+                source,
+                path: file_name.clone(),
+            })?;
         }
         // commit and update
         let message = format!("Removed {package}:{version}");
@@ -373,7 +477,7 @@ impl GitIndexImpl {
     }
 
     /// Commits the local changes to the index
-    async fn commit_changes(&self, message: &str) -> Result<(), ApiError> {
+    async fn commit_changes(&self, message: &str) -> Result<(), GitIndexError> {
         let location = PathBuf::from(&self.config.location);
         execute_git(&location, &["add", "."]).await?;
         execute_git(&location, &["commit", "-m", message]).await?;
@@ -397,7 +501,7 @@ impl GitIndexImpl {
         let mut reader = BufReader::new(file).lines();
         let mut results = Vec::new();
         let mut line_idx = 0;
-        while let Some(line) = reader.next_line().await.map_err(|source| IndexError::ReadNextLine {
+        while let Some(line) = reader.next_line().await.map_err(|source| GitIndexError::ReadNextLine {
             source,
             path: file_name.clone(),
             line_idx,

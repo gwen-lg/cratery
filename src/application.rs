@@ -580,10 +580,7 @@ impl Application {
             .db_transaction_read(|app| async move {
                 let _authentication = app.authenticate(auth_data).await?;
                 app.database
-                    .get_crate_info(
-                        package,
-                        self.service_index.get_crate_data(package).await.map_err(UnApiError::from)?,
-                    )
+                    .get_crate_info(package, self.service_index.get_crate_data(package).await?)
                     .await
                     .map_err(anyhow::Error::from)
             })

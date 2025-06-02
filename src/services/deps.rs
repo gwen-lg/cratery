@@ -391,7 +391,7 @@ impl DepsCheckerImpl {
             }
         } else {
             // same registry, lookup in internal index
-            self.service_index.get_crate_data(name).await
+            self.service_index.get_crate_data(name).await.map_err(ApiError::from)
         }
     }
 

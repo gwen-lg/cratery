@@ -6,16 +6,17 @@
 
 use std::path::{Path, PathBuf};
 
+use futures::future::BoxFuture;
 use log::{error, info};
 use thiserror::Error;
 use tokio::fs::{File, OpenOptions, create_dir_all};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
 
-use super::{Index, build_package_file_path};
+use super::{Index, IndexError, build_package_file_path};
 use crate::model::cargo::IndexCrateMetadata;
 use crate::model::config::IndexConfig;
-use crate::utils::apierror::{ApiError, error_not_found, specialize};
+use crate::utils::apierror::ApiError;
 use crate::utils::{CommandError, FaillibleFuture, execute_at_location, execute_git};
 
 #[derive(Debug, Error)]
@@ -88,6 +89,13 @@ pub enum GitIndexError {
 
     #[error("fail to write git index public config")]
     WritePublicConfig(#[source] io::Error),
+
+    #[error("failed to deserialise line `{line_idx}` : \n{line}")]
+    DeserialiseLine {
+        source: serde_json::Error,
+        line: String,
+        line_idx: usize,
+    },
 }
 
 /// Manages the index on git
@@ -126,7 +134,7 @@ impl Index for GitIndex {
         Box::pin(async move { self.inner.lock().await.remove_crate_version(package, version).await })
     }
 
-    fn get_crate_data<'a>(&'a self, package: &'a str) -> FaillibleFuture<'a, Vec<IndexCrateMetadata>> {
+    fn get_crate_data<'a>(&'a self, package: &'a str) -> BoxFuture<'a, Result<Vec<IndexCrateMetadata>, IndexError>> {
         Box::pin(async move { self.inner.lock().await.get_crate_data(package).await })
     }
 }
@@ -377,20 +385,27 @@ impl GitIndexImpl {
     }
 
     ///  Gets the data for a crate
-    async fn get_crate_data(&self, package: &str) -> Result<Vec<IndexCrateMetadata>, ApiError> {
+    async fn get_crate_data(&self, package: &str) -> Result<Vec<IndexCrateMetadata>, IndexError> {
         let file_name = build_package_file_path(PathBuf::from(&self.config.location), package);
         if !file_name.exists() {
-            return Err(specialize(
-                error_not_found(),
-                format!("package {package} is not in this registry"),
-            ));
+            return Err(IndexError::PackageNotInRegistry { package: package.into() });
         }
-        let file = File::open(&file_name).await?;
+        let file = File::open(&file_name).await.map_err(|source| IndexError::OpenFile {
+            source,
+            path: file_name.clone(),
+        })?;
         let mut reader = BufReader::new(file).lines();
         let mut results = Vec::new();
-        while let Some(line) = reader.next_line().await? {
-            let data = serde_json::from_str(&line)?;
+        let mut line_idx = 0;
+        while let Some(line) = reader.next_line().await.map_err(|source| IndexError::ReadNextLine {
+            source,
+            path: file_name.clone(),
+            line_idx,
+        })? {
+            let data =
+                serde_json::from_str(&line).map_err(|source| GitIndexError::DeserialiseLine { source, line, line_idx })?;
             results.push(data);
+            line_idx += 1;
         }
         Ok(results)
     }

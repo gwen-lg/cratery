@@ -23,7 +23,7 @@ use crate::services::database::{DbReadError, DbWriteError};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
-use crate::services::index::{GitIndexError, Index};
+use crate::services::index::{GitIndexError, Index, IndexError};
 use crate::services::rustsec::RustSecChecker;
 use crate::services::storage::Storage;
 use crate::services::{ConfigurationError, ServiceProvider};
@@ -38,6 +38,9 @@ fn resolved_default<T: Default + Send>() -> FaillibleFuture<'static, T> {
     Box::pin(async { Ok(T::default()) })
 }
 fn resolved_default_read<T: Default + Send>() -> BoxFuture<'static, Result<T, DbReadError>> {
+    Box::pin(async { Ok(T::default()) })
+}
+fn resolved_default_index<T: Default + Send>() -> BoxFuture<'static, Result<T, IndexError>> {
     Box::pin(async { Ok(T::default()) })
 }
 
@@ -111,8 +114,8 @@ impl Index for MockService {
         resolved_default()
     }
 
-    fn get_crate_data<'a>(&'a self, _package: &'a str) -> FaillibleFuture<'a, Vec<IndexCrateMetadata>> {
-        resolved_default()
+    fn get_crate_data<'a>(&'a self, _package: &'a str) -> BoxFuture<'a, Result<Vec<IndexCrateMetadata>, IndexError>> {
+        resolved_default_index()
     }
 }
 

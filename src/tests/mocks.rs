@@ -110,8 +110,8 @@ impl Index for MockService {
         resolved_default()
     }
 
-    fn remove_crate_version<'a>(&'a self, _package: &'a str, _version: &'a str) -> FaillibleFuture<'a, ()> {
-        resolved_default()
+    fn remove_crate_version<'a>(&'a self, _package: &'a str, _version: &'a str) -> BoxFuture<'a, Result<(), IndexError>> {
+        resolved_default_index()
     }
 
     fn get_crate_data<'a>(&'a self, _package: &'a str) -> BoxFuture<'a, Result<Vec<IndexCrateMetadata>, IndexError>> {

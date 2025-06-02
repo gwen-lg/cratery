@@ -31,14 +31,6 @@ pub enum IndexError {
         path: PathBuf,
     },
 
-    #[error("failed to read line {line_idx} in file `{path}`")]
-    ReadNextLine {
-        #[source]
-        source: io::Error,
-        path: PathBuf,
-        line_idx: usize,
-    },
-
     #[error(transparent)]
     GitIndexError(#[from] GitIndexError),
 }
@@ -58,7 +50,7 @@ pub trait Index {
     fn publish_crate_version<'a>(&'a self, metadata: &'a IndexCrateMetadata) -> FaillibleFuture<'a, ()>;
 
     /// Removes a crate version from the index
-    fn remove_crate_version<'a>(&'a self, package: &'a str, version: &'a str) -> FaillibleFuture<'a, ()>;
+    fn remove_crate_version<'a>(&'a self, package: &'a str, version: &'a str) -> BoxFuture<'a, Result<(), IndexError>>;
 
     ///  Gets the data for a crate
     fn get_crate_data<'a>(&'a self, package: &'a str) -> BoxFuture<'a, Result<Vec<IndexCrateMetadata>, IndexError>>;

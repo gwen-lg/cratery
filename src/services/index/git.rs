@@ -7,11 +7,13 @@
 use std::path::{Path, PathBuf};
 
 use futures::future::BoxFuture;
+use futures::{StreamExt, TryStreamExt};
 use log::{error, info};
 use thiserror::Error;
 use tokio::fs::{File, OpenOptions, create_dir_all};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
+use tokio_stream::wrappers::LinesStream;
 
 use super::{Index, IndexError, build_package_file_path};
 use crate::model::cargo::IndexCrateMetadata;
@@ -415,23 +417,24 @@ impl GitIndexImpl {
                     path: file_name.clone(),
                 })?;
             let reader = BufReader::new(file);
-            let mut lines = reader.lines();
-            let mut versions = Vec::new();
-            let mut line_idx = 0;
-            while let Some(line) = lines.next_line().await.map_err(|source| GitIndexError::ReadNextLine {
-                source,
-                path: file_name.clone(),
-                line_idx,
-            })? {
-                versions.push(
+            let lines = LinesStream::new(reader.lines());
+            let versions: Vec<_> = lines
+                .enumerate()
+                .map(|(line_idx, line)| {
+                    let line = line.map_err(|source| GitIndexError::ReadNextLine {
+                        source,
+                        path: file_name.clone(),
+                        line_idx,
+                    })?;
                     serde_json::from_str::<IndexCrateMetadata>(&line).map_err(|source| GitIndexError::DeserialiseLine {
                         source,
                         line,
                         line_idx,
-                    })?,
-                );
-                line_idx += 1;
-            }
+                    })
+                })
+                .try_collect()
+                .await?;
+
             versions
         };
         // remove the version of interest

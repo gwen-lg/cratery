@@ -512,7 +512,7 @@ impl GitIndexImpl {
         let mut reader = BufReader::new(file).lines();
         let mut results = Vec::new();
         let mut line_idx = 0;
-        while let Some(line) = reader.next_line().await.map_err(|source| GitIndexError::ReadNextLine {
+        while let Some(line) = reader.next_line().await.map_err(|source| IndexError::ReadNextLine {
             source,
             path: file_name.clone(),
             line_idx,

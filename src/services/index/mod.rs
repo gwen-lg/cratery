@@ -31,6 +31,14 @@ pub enum IndexError {
         path: PathBuf,
     },
 
+    #[error("failed to read line {line_idx} in file `{path}`")]
+    ReadNextLine {
+        #[source]
+        source: io::Error,
+        path: PathBuf,
+        line_idx: usize,
+    },
+
     #[error(transparent)]
     GitIndexError(#[from] GitIndexError),
 }

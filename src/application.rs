@@ -947,11 +947,7 @@ impl Application {
     pub async fn get_crates_stats(&self, auth_data: &AuthData) -> Result<GlobalStats, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
-            app.database
-                .get_crates_stats()
-                .await
-                .map_err(UnApiError::from)
-                .map_err(anyhow::Error::from)
+            app.database.get_crates_stats().await.map_err(anyhow::Error::from)
         })
         .await
         .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information
@@ -1036,6 +1032,8 @@ pub enum AuthenticationError {
 
 impl ToErrorCode for AuthenticationError {
     fn error_code(&self) -> u16 {
+//impl AuthenticationError {
+//    fn into_api_error(self) -> ApiError {
         match self {
             Self::Unauthorized | Self::CookieMissing => ApiError::new(401, "User is not authenticated.", None),
             Self::CookieDeserialization(error) => {

@@ -36,7 +36,7 @@ use crate::services::emails::EmailSender;
 use crate::services::index::{GitIndexError, Index};
 use crate::services::rustsec::RustSecChecker;
 use crate::services::storage::Storage;
-use crate::utils::apierror::{ApiError, UnApiError, error_forbidden};
+use crate::utils::apierror::{ApiError, error_forbidden};
 use crate::utils::axum::auth::{AuthData, Token};
 use crate::utils::db::{PoolCreateError, RwSqlitePool};
 
@@ -942,11 +942,7 @@ impl Application {
     pub async fn get_crates_stats(&self, auth_data: &AuthData) -> Result<GlobalStats, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
-            app.database
-                .get_crates_stats()
-                .await
-                .map_err(UnApiError::from)
-                .map_err(anyhow::Error::from)
+            app.database.get_crates_stats().await.map_err(anyhow::Error::from)
         })
         .await
         .map_err(ApiError::from) //TODO: create a conversion in DbWriteError ? create uuid + log / Add information

@@ -80,6 +80,7 @@ suspicious = { level = "deny", priority = -1 }
 # The individually activated lints below come from : nursery, pedantic, restriction or suspicious.
 allow_attributes = "warn"
 cast_possible_truncation = "warn"
+fallible_impl_from = "warn"
 future_not_send = "deny"
 infinite_loop = "warn"
 missing_const_for_fn = "warn"

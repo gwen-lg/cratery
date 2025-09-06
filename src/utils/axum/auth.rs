@@ -117,7 +117,8 @@ where
         let cookie_jar = parts.extract::<Cookies>().await?.0;
         let token = parts
             .headers
-            .get("authorization").and_then(|header| header.to_str().ok().and_then(Token::try_parse));
+            .get("authorization")
+            .and_then(|header| header.to_str().ok().and_then(Token::try_parse));
         Ok(Self {
             cookie_domain: state.get_domain(),
             cookie_id_name: state.get_id_cookie_name(),

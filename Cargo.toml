@@ -79,6 +79,7 @@ perf = { level = "deny", priority = -1 }
 style = { level = "deny", priority = -1 }
 suspicious = { level = "deny", priority = -1 }
 # The individually activated lints below come from : nursery, pedantic, restriction or suspicious.
+allow_attributes = "warn"
 bind_instead_of_map = "deny"
 type_repetition_in_bounds = "deny"
 borrowed_box = "deny"

@@ -216,7 +216,7 @@ where
     S: Sink<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin,
 {
     let JobSpecification::DocGen(job) = job;
-    let service_storage = StandardServiceProvider::get_storage(config);
+    let service_storage = StandardServiceProvider::get_storage(config)?;
     match crate::services::docs::generate_doc_for_job(config, service_storage, &job).await {
         Ok((state, log)) => {
             let now = Local::now().naive_local();

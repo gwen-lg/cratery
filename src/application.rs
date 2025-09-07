@@ -36,7 +36,7 @@ use crate::services::emails::EmailSender;
 use crate::services::index::{GitIndexError, Index};
 use crate::services::rustsec::RustSecChecker;
 use crate::services::storage::Storage;
-use crate::utils::apierror::{ApiError, ToErrorCode, UnApiError, error_forbidden};
+use crate::utils::apierror::{ApiError, error_forbidden};
 use crate::utils::axum::auth::{AuthData, Token};
 use crate::utils::db::{PoolCreateError, RwSqlitePool};
 
@@ -1028,37 +1028,6 @@ pub enum AuthenticationError {
 
     #[error("Expected a user to be authenticated")]
     NoUserAuthenticated,
-}
-
-impl ToErrorCode for AuthenticationError {
-    fn error_code(&self) -> u16 {
-//impl AuthenticationError {
-//    fn into_api_error(self) -> ApiError {
-        match self {
-            Self::Unauthorized | Self::CookieMissing => ApiError::new(401, "User is not authenticated.", None),
-            Self::CookieDeserialization(error) => {
-                log_err(&error.into());
-                ApiError::new(500, "Internal error for user authentication.", None)
-            }
-            Self::GlobalToken(error) | Self::UserToken(error) | Self::CheckUser(error) | Self::CheckRoles(error) => {
-                log_err(&error.into());
-                ApiError::new(500, "Internal error for user authentication.", None)
-            }
-            Self::NoUserAuthenticated => ApiError::new(400, "The request could not be understood by the server.", None),
-            Self::Forbidden | Self::AdministrationIsForbidden | Self::WriteIsForbidden => {
-                ApiError::new(403, "This action is forbidden to the user.", None)
-            }
-        }
-    }
-}
-
-// fn log_err<E, B>(err: E)
-// where
-//     B: Borrow<anyhow::Error>,
-//     E: Into<B> + std::error::Error,
-fn log_err(err: &anyhow::Error) {
-    //err.chain().enumerate().for_each(|(idx, err)|error!("\t{idx} "));
-    error!("{err:#?}");
 }
 
 ///TODO: docs

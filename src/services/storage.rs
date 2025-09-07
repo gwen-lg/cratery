@@ -12,6 +12,7 @@ use flate2::bufread::GzDecoder;
 use opendal::layers::{LoggingLayer, RetryLayer};
 use opendal::{ErrorKind, Operator};
 use tar::Archive;
+use thiserror::Error;
 
 use crate::model::cargo::CrateMetadata;
 use crate::model::config::{Configuration, RetryParams, StorageConfig};
@@ -43,9 +44,9 @@ pub trait Storage {
 }
 
 /// Gets the backing storage for the documentation
-#[must_use]
-pub fn get_service(config: &Configuration) -> Arc<dyn Storage + Send + Sync> {
-    Arc::new(StorageImpl::from(config))
+pub fn get_service(config: &Configuration) -> Result<Arc<dyn Storage + Send + Sync>, StorageFromConfError> {
+    let storage = StorageImpl::try_from(config)?;
+    Ok(Arc::new(storage))
 }
 
 /// Backing storage
@@ -65,13 +66,26 @@ fn retry_layer_from_params(retry_params: &RetryParams) -> RetryLayer {
     layer
 }
 
-impl From<&Configuration> for StorageImpl {
-    fn from(config: &Configuration) -> Self {
+/// Specify error from storage creation
+#[derive(Debug, Error)]
+pub enum StorageFromConfError {
+    #[error("create opendal Operator from Fs builder")]
+    FileSystem(#[source] Box<opendal::Error>),
+    #[error("create opendal Operator from S3 builder")]
+    S3(#[source] Box<opendal::Error>),
+}
+
+impl TryFrom<&Configuration> for StorageImpl {
+    type Error = StorageFromConfError;
+
+    fn try_from(config: &Configuration) -> Result<Self, Self::Error> {
         let opendal_operator = match &config.storage {
             StorageConfig::FileSystem { retry_params } => {
                 let builder = opendal::services::Fs::default().root(&config.data_dir);
 
-                let op = opendal::Operator::new(builder).unwrap().layer(LoggingLayer::default());
+                let op = opendal::Operator::new(builder)
+                    .map_err(|src| Self::Error::FileSystem(Box::new(src)))?
+                    .layer(LoggingLayer::default());
                 if let Some(retry_params) = retry_params {
                     op.layer(retry_layer_from_params(retry_params)).finish()
                 } else {
@@ -91,7 +105,9 @@ impl From<&Configuration> for StorageImpl {
                     .access_key_id(&params.access_key)
                     .secret_access_key(&params.secret_key);
 
-                let op = opendal::Operator::new(builder).unwrap().layer(LoggingLayer::default());
+                let op = opendal::Operator::new(builder)
+                    .map_err(|src| Self::Error::S3(Box::new(src)))?
+                    .layer(LoggingLayer::default());
                 if let Some(retry_params) = retry_params {
                     op.layer(retry_layer_from_params(retry_params)).finish()
                 } else {
@@ -100,7 +116,7 @@ impl From<&Configuration> for StorageImpl {
             }
         };
 
-        StorageImpl { opendal_operator }
+        Ok(StorageImpl { opendal_operator })
     }
 }
 

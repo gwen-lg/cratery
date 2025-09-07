@@ -35,7 +35,7 @@ use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
 use crate::services::index::{GitIndexError, Index};
 use crate::services::rustsec::RustSecChecker;
-use crate::services::storage::Storage;
+use crate::services::storage::{Storage, StorageFromConfError};
 use crate::utils::apierror::{ApiError, error_forbidden};
 use crate::utils::axum::auth::{AuthData, Token};
 use crate::utils::db::{PoolCreateError, RwSqlitePool};
@@ -66,6 +66,9 @@ pub enum LaunchError {
 
     #[error("failed to launch doc generator for undocumented packages")]
     DocGenerator(#[source] DbWriteError),
+
+    #[error("get storage from conf")]
+    GetStorage(#[source] StorageFromConfError),
 }
 /// The state of this application for axum
 pub struct Application {
@@ -124,7 +127,7 @@ impl Application {
         let db_is_empty = db_transaction_read(&service_db_pool, |database| async move { database.get_is_empty().await })
             .await
             .map_err(LaunchError::DbRead)?;
-        let service_storage = P::get_storage(&configuration.deref().clone());
+        let service_storage = P::get_storage(&configuration.deref().clone()).map_err(LaunchError::GetStorage)?;
         let service_index = P::get_index(&configuration, db_is_empty)
             .await
             .map_err(LaunchError::GetIndex)?;

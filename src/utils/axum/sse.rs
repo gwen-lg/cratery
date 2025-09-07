@@ -37,6 +37,7 @@ impl<T> Event<T> {
     }
 }
 
+#[expect(clippy::map_err_ignore)]
 impl<T: Serialize> Display for Event<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some(event_type) = self.event_type.as_deref() {

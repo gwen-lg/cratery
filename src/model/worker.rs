@@ -494,6 +494,7 @@ impl WorkersManager {
             });
             if let Some(index) = index {
                 let item = inner.queue.remove(index);
+                drop(inner);
                 item.waker.wake();
             }
         }

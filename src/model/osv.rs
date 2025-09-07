@@ -6,6 +6,7 @@
 
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvisorySeverity {
@@ -149,39 +150,74 @@ impl SimpleAdvisory {
     }
 }
 
+///TODO
+#[derive(Debug, Error)]
+pub enum SimpleAdvisoryError {
+    #[error("missing withdrawn")]
+    MissingWithdraw,
+
+    #[error("missing crates.io package in affected")] //TODO: determing a valid and comprehensive error message
+    NoCratesIoPackage,
+
+    #[error("TODO")]
+    MissingIntroductedEvent,
+
+    #[error("parse package introducted value")]
+    ParseIntroduced(#[source] semver::Error),
+    #[error("parse package fixed value")]
+    ParseFixed(#[source] semver::Error),
+    #[error("parse package last affected value")]
+    ParseLastAffected(#[source] semver::Error),
+
+    #[error("parse version : `{version}`")]
+    ParseVersion {
+        #[source]
+        src: semver::Error,
+        version: String,
+    },
+
+    #[error("tried convert Advisory to SimpleAdvisory")]
+    Parse(#[source] semver::Error),
+}
+
 impl TryFrom<Advisory> for SimpleAdvisory {
-    type Error = ();
+    type Error = SimpleAdvisoryError;
 
     fn try_from(advisory: Advisory) -> Result<Self, Self::Error> {
         if !advisory.withdrawn.is_empty() {
-            return Err(());
+            return Err(Self::Error::MissingWithdraw);
         }
         let affected = advisory
             .affected
             .into_iter()
             .find(|affected| affected.package.ecosystem == "crates.io")
-            .ok_or(())?;
+            .ok_or(Self::Error::NoCratesIoPackage)?;
         let ranges = affected
             .ranges
             .into_iter()
             .filter(|range| range.type_value == "SEMVER")
             .map(|range| {
-                let introduced = range.events.iter().find_map(|event| event.introduced.as_ref()).ok_or(())?;
+                let introduced = range
+                    .events
+                    .iter()
+                    .find_map(|event| event.introduced.as_ref())
+                    .ok_or(Self::Error::MissingIntroductedEvent)?;
                 let fixed = range.events.iter().find_map(|event| event.fixed.as_ref());
                 let last_affected = range.events.iter().find_map(|event| event.last_affected.as_ref());
-                Ok::<_, ()>(SimpleAdvisoryRange {
-                    introduced: introduced.parse().map_err(|_| ())?,
-                    fixed: fixed.map(|v| v.parse().map_err(|_| ())).transpose()?,
-                    last_affected: last_affected.map(|v| v.parse().map_err(|_| ())).transpose()?,
+                Ok::<_, _>(SimpleAdvisoryRange {
+                    introduced: introduced.parse().map_err(Self::Error::ParseIntroduced)?,
+                    fixed: fixed.map(|v| v.parse().map_err(Self::Error::ParseFixed)).transpose()?,
+                    last_affected: last_affected
+                        .map(|v| v.parse().map_err(Self::Error::ParseLastAffected))
+                        .transpose()?,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
         let versions = affected
             .versions
             .iter()
-            .map(|v| v.parse())
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_| ())?;
+            .map(|v| v.parse().map_err(|src| Self::Error::ParseVersion { src, version: v.into() }))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             package: affected.package.name,
             id: advisory.id,

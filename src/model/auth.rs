@@ -57,7 +57,7 @@ impl Authentication {
     }
 
     /// Gets the uid of the associated user
-    pub fn uid(&self) -> Result<i64, AuthenticationError> {
+    pub const fn uid(&self) -> Result<i64, AuthenticationError> {
         if let AuthenticationPrincipal::User { uid, email: _ } = &self.principal {
             Ok(*uid)
         } else {
@@ -75,7 +75,7 @@ impl Authentication {
     }
 
     /// Checks that this authentication enables writing
-    pub fn check_can_write(&self) -> Result<(), AuthenticationError> {
+    pub const fn check_can_write(&self) -> Result<(), AuthenticationError> {
         if self.can_write {
             Ok(())
         } else {
@@ -84,7 +84,7 @@ impl Authentication {
     }
 
     /// Checks that this authentication enables admin tasks
-    pub fn check_can_admin(&self) -> Result<(), AuthenticationError> {
+    pub const fn check_can_admin(&self) -> Result<(), AuthenticationError> {
         if self.can_admin {
             Ok(())
         } else {

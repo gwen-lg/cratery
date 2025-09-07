@@ -80,6 +80,7 @@ perf = { level = "deny", priority = -1 }
 style = { level = "deny", priority = -1 }
 suspicious = { level = "deny", priority = -1 }
 # The individually activated lints below come from : nursery, pedantic, restriction or suspicious.
+allow_attributes = "warn"
 fallible_impl_from = "warn"
 future_not_send = "deny"
 infinite_loop = "warn"

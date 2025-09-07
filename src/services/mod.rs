@@ -47,7 +47,7 @@ pub trait ServiceProvider {
     async fn get_configuration() -> Result<Configuration, ConfigurationError>;
 
     /// Gets the backing storage for the documentation
-    fn get_storage(config: &Configuration) -> Arc<dyn storage::Storage + Send + Sync>;
+    fn get_storage(config: &Configuration) -> Result<Arc<dyn storage::Storage + Send + Sync>, storage::StorageFromConfError>;
 
     /// Gets the index service
     async fn get_index(
@@ -94,7 +94,9 @@ impl ServiceProvider for StandardServiceProvider {
     }
 
     /// Gets the backing storage for the documentation
-    fn get_storage(config: &Configuration) -> Arc<dyn storage::Storage + Send + Sync> {
+    fn get_storage(
+        config: &Configuration,
+    ) -> Result<Arc<dyn storage::Storage + Send + Sync + 'static>, storage::StorageFromConfError> {
         storage::get_service(config)
     }
 

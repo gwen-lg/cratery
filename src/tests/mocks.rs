@@ -25,7 +25,7 @@ use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
 use crate::services::index::{GitIndexError, Index, IndexError};
 use crate::services::rustsec::RustSecChecker;
-use crate::services::storage::Storage;
+use crate::services::storage::{Storage, StorageFromConfError};
 use crate::services::{ConfigurationError, ServiceProvider};
 use crate::utils::FaillibleFuture;
 use crate::utils::db::RwSqlitePool;
@@ -53,8 +53,8 @@ impl ServiceProvider for MockService {
         })
     }
 
-    fn get_storage(_config: &Configuration) -> Arc<dyn Storage + Send + Sync> {
-        Arc::new(Self)
+    fn get_storage(_config: &Configuration) -> Result<Arc<dyn Storage + Send + Sync + 'static>, StorageFromConfError> {
+        Ok(Arc::new(Self))
     }
 
     async fn get_index(_config: &Configuration, _expect_empty: bool) -> Result<Arc<dyn Index + Send + Sync>, GitIndexError> {

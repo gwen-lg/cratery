@@ -122,8 +122,13 @@ impl RustSecData {
                     Box::pin(async move {
                         let content = tokio::fs::read(&entry?.path()).await?;
                         let advisory = serde_json::from_slice::<Advisory>(&content)?;
-                        if let Ok(simple) = SimpleAdvisory::try_from(advisory) {
-                            db.lock().unwrap().entry(simple.package.clone()).or_default().push(simple);
+                        match SimpleAdvisory::try_from(advisory) {
+                            Ok(simple) => {
+                                db.lock().unwrap().entry(simple.package.clone()).or_default().push(simple);
+                            }
+                            Err(err) => {
+                                log::warn!("failed to create SimpleAdvisory from Advisory : {err}");
+                            }
                         }
                         Ok::<_, ApiError>(())
                     })

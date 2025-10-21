@@ -58,7 +58,7 @@ impl Authentication {
 
     /// Gets the uid of the associated user
     pub fn uid(&self) -> Result<i64, ApiError> {
-        if let AuthenticationPrincipal::User { uid, email: _ } = &self.principal {
+        if let AuthenticationPrincipal::User { uid, .. } = &self.principal {
             Ok(*uid)
         } else {
             Err(specialize(
@@ -70,7 +70,7 @@ impl Authentication {
 
     /// Gets the email of the associated user
     pub fn email(&self) -> Result<&str, ApiError> {
-        if let AuthenticationPrincipal::User { uid: _, email } = &self.principal {
+        if let AuthenticationPrincipal::User { email, .. } = &self.principal {
             Ok(email)
         } else {
             Err(specialize(

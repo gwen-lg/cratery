@@ -86,9 +86,9 @@ impl DocGenTrigger {
     #[must_use]
     pub fn value(&self) -> i64 {
         match self {
-            Self::Upload { by: _ } => 0,
-            Self::NewTarget { by: _ } => 1,
-            Self::Manual { by: _ } => 2,
+            Self::Upload { .. } => 0,
+            Self::NewTarget { .. } => 1,
+            Self::Manual { .. } => 2,
             Self::MissingOnLaunch => 3,
         }
     }

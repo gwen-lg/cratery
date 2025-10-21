@@ -96,8 +96,7 @@ impl RustSecData {
     async fn update_data(&mut self) -> Result<(), ApiError> {
         let now = Instant::now();
         let is_stale = now.duration_since(self.last_touch) > Duration::from_millis(self.stale_registry);
-        let mut reg_location = PathBuf::from(&self.data_dir);
-        reg_location.push(DATA_SUB_DIR);
+        let mut reg_location = PathBuf::from(&self.data_dir).join(DATA_SUB_DIR);
         if is_stale {
             if tokio::fs::try_exists(&reg_location).await? {
                 crate::utils::execute_git(&reg_location, &["fetch", "origin", RUSTSEC_DB_GIT_BRANCH]).await?;

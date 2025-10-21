@@ -293,10 +293,7 @@ pub async fn generate_doc_for_job(
                 service_storage
                     .store_doc_data(&job_log_location(job), log.as_bytes().to_vec())
                     .await?;
-                let mut project_folder = project_folder.clone();
-                project_folder.push("target");
-                project_folder.push(&job.target);
-                project_folder.push("doc");
+                let project_folder = project_folder.join("target").join(&job.target).join("doc");
                 let doc_folder = project_folder;
                 upload_package(
                     service_storage.clone(),

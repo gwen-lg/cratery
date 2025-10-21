@@ -71,9 +71,7 @@ impl GitIndexImpl {
 
         // check for the SSH key
         if let Some(file_name) = &index.config.remote_ssh_key_file_name {
-            let mut key_filename = PathBuf::from(&index.config.home_dir);
-            key_filename.push(".ssh");
-            key_filename.push(file_name);
+            let key_filename = PathBuf::from(&index.config.home_dir).join(".ssh").join(file_name);
             if !key_filename.exists() {
                 return Err(specialize(
                     error_backend_failure(),
@@ -149,8 +147,7 @@ impl GitIndexImpl {
         // write the index configuration
         {
             let index_config = serde_json::to_vec(&self.config.public)?;
-            let mut file_name = location.to_path_buf();
-            file_name.push("config.json");
+            let file_name = location.join("config.json");
             let mut file = File::create(&file_name).await?;
             file.write_all(&index_config).await?;
             file.flush().await?;

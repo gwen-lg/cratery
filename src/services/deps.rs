@@ -416,9 +416,7 @@ impl DepsCheckerImpl {
         let now = Instant::now();
         let is_stale = now.duration_since(last_touch) > Duration::from_millis(self.configuration.deps_stale_registry);
 
-        let mut reg_location = PathBuf::from(&self.configuration.data_dir);
-        reg_location.push(DATA_SUB_DIR);
-        reg_location.push(reg_name);
+        let reg_location = PathBuf::from(&self.configuration.data_dir).join(DATA_SUB_DIR).join(reg_name);
         if is_stale {
             if tokio::fs::try_exists(&reg_location).await? {
                 crate::utils::execute_git(&reg_location, &["fetch", "origin", "master"]).await?;
@@ -445,9 +443,7 @@ impl DepsCheckerImpl {
 
     /// Builds the path in the storage to the local file
     async fn get_dependency_info_file_path(&self, dep_name: &str, reg_name: &str) -> Result<PathBuf, ApiError> {
-        let mut reg_location = PathBuf::from(&self.configuration.data_dir);
-        reg_location.push(DATA_SUB_DIR);
-        reg_location.push(reg_name);
+        let reg_location = PathBuf::from(&self.configuration.data_dir).join(DATA_SUB_DIR).join(reg_name);
         let file_path = crate::services::index::build_package_file_path(reg_location, dep_name);
         tokio::fs::create_dir_all(file_path.parent().unwrap()).await?;
         Ok(file_path)

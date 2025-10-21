@@ -40,8 +40,7 @@ fn resolved_default<T: Default + Send>() -> FaillibleFuture<'static, T> {
 impl ServiceProvider for MockService {
     /// Gets the configuration
     async fn get_configuration() -> Result<Configuration, ApiError> {
-        let mut temp_dir = temp_dir();
-        temp_dir.push(format!("cratery-test-{}", generate_token(16)));
+        let temp_dir = temp_dir().join(format!("cratery-test-{}", generate_token(16)));
         tokio::fs::create_dir_all(&temp_dir).await?;
         Ok(Configuration {
             data_dir: temp_dir.to_str().unwrap().to_string(),

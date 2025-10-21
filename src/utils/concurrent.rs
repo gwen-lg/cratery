@@ -9,7 +9,7 @@ use std::pin::{Pin, pin};
 use std::task::{Context, Poll};
 
 use futures::future::{Either, FusedFuture, select, select_all};
-use futures::{FutureExt, Stream, StreamExt};
+use futures::{FutureExt as _, Stream, StreamExt as _};
 
 /// Takes an iterator of futures and executes them concurrently, with at most n concurrent futures.
 /// This is similar to the `futures::future::join_all` function, except that instead of executing them all,

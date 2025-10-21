@@ -8,9 +8,9 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
-use byteorder::ByteOrder;
-use chrono::{Datelike, Duration, Local, NaiveDateTime};
-use futures::StreamExt;
+use byteorder::ByteOrder as _;
+use chrono::{Datelike as _, Duration, Local, NaiveDateTime};
+use futures::StreamExt as _;
 use semver::Version;
 
 use super::Database;

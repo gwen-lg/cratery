@@ -4,10 +4,10 @@
 
 //! Utility APIs for token generation and management
 
-use base64::Engine;
+use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use data_encoding::HEXLOWER;
-use rand::Rng;
+use rand::Rng as _;
 use rand::distr::StandardUniform;
 use ring::digest::{Context, SHA256};
 

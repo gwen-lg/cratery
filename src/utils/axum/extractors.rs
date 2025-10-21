@@ -8,10 +8,10 @@ use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 use std::ops::{Deref, DerefMut};
 
-use axum::RequestPartsExt;
+use axum::RequestPartsExt as _;
 use axum::extract::{ConnectInfo, FromRequestParts};
 use axum::http::request::Parts;
-use base64::Engine;
+use base64::Engine as _;
 use base64::prelude::BASE64_URL_SAFE;
 use cookie::{Cookie, CookieJar};
 use serde::Deserialize;

@@ -6,7 +6,7 @@
 
 use std::net::SocketAddr;
 use std::pin::pin;
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::sync::Arc;
 
 use axum::Router;
@@ -17,7 +17,7 @@ use log::info;
 
 use crate::application::Application;
 use crate::routes::AxumState;
-use crate::services::ServiceProvider;
+use crate::services::ServiceProvider as _;
 use crate::utils::sigterm::waiting_sigterm;
 
 pub mod application;

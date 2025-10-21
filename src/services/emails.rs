@@ -10,7 +10,7 @@ use lettre::message::header::ContentType;
 use lettre::message::{MessageBuilder, SinglePartBuilder};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::transport::smtp::client::{Tls, TlsParametersBuilder};
-use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+use lettre::{AsyncSmtpTransport, AsyncTransport as _, Message, Tokio1Executor};
 
 use crate::model::config::Configuration;
 use crate::utils::FaillibleFuture;

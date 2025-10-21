@@ -5,19 +5,19 @@
 //! Service to fetch data about dependency crates
 
 use std::collections::HashMap;
-use std::fmt::Write;
-use std::io::{BufRead, BufReader};
+use std::fmt::Write as _;
+use std::io::{BufRead as _, BufReader};
 use std::path::{Path, PathBuf};
 use std::slice;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use base64::Engine;
+use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use futures::lock::Mutex;
 use log::{error, info};
 use tokio::fs::File;
-use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncBufReadExt as _;
 
 use crate::model::cargo::{IndexCrateDependency, IndexCrateMetadata};
 use crate::model::config::{Configuration, ExternalRegistryProtocol};

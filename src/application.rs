@@ -5,7 +5,7 @@
 //! Main application
 
 use std::future::Future;
-use std::ops::Deref;
+use std::ops::Deref as _;
 use std::sync::Arc;
 
 use log::{error, info};

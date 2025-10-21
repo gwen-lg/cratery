@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use log::{error, info};
 use tokio::fs::{File, OpenOptions, create_dir_all};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
 use tokio::sync::Mutex;
 
 use super::{Index, build_package_file_path};

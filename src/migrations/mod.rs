@@ -4,10 +4,10 @@
 
 //! Module for the migrations of the platform database
 
-use std::ops::DerefMut;
+use std::ops::DerefMut as _;
 
 use log::info;
-use sqlx::{Executor, SqliteConnection};
+use sqlx::{Executor as _, SqliteConnection};
 
 use crate::utils::apierror::ApiError;
 use crate::utils::db::{AppTransaction, Migration, MigrationContent, MigrationError, SCHEMA_METADATA_VERSION, VersionNumber};

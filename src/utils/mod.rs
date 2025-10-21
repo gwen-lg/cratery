@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use apierror::{ApiError, error_backend_failure, specialize};
 use futures::future::BoxFuture;
-use tokio::io::AsyncWriteExt;
+use tokio::io::AsyncWriteExt as _;
 use tokio::process::Command;
 
 pub mod apierror;

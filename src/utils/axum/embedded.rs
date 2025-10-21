@@ -86,7 +86,7 @@ impl WebappResource {
     pub fn into_data(self) -> Cow<'static, [u8]> {
         match self {
             Self::Embedded(res) => Cow::Borrowed(res.content),
-            Self::HotReload { content_type: _, data } => Cow::Owned(data),
+            Self::HotReload { data, .. } => Cow::Owned(data),
         }
     }
 }

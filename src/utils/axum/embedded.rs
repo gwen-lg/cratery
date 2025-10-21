@@ -77,7 +77,7 @@ impl WebappResource {
     pub const fn content_type(&self) -> &str {
         match self {
             Self::Embedded(res) => res.content_type,
-            Self::HotReload { content_type, data: _ } => content_type.as_str(),
+            Self::HotReload { content_type, .. } => content_type.as_str(),
         }
     }
 
@@ -86,7 +86,7 @@ impl WebappResource {
     pub fn into_data(self) -> Cow<'static, [u8]> {
         match self {
             Self::Embedded(res) => Cow::Borrowed(res.content),
-            Self::HotReload { content_type: _, data } => Cow::Owned(data),
+            Self::HotReload { data, .. } => Cow::Owned(data),
         }
     }
 }

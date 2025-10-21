@@ -423,6 +423,7 @@ impl Database {
         }
         // aggregate results
         let mut jobs = Vec::new();
+        #[expect(clippy::iter_over_hash_type)]
         for (package, data) in packages {
             for version in data.versions {
                 for (index, info) in data.targets.iter().enumerate() {

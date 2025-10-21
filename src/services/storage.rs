@@ -102,7 +102,7 @@ impl TryFrom<&Configuration> for StorageImpl {
             }
         };
 
-        Ok(StorageImpl { opendal_operator })
+        Ok(Self { opendal_operator })
     }
 }
 

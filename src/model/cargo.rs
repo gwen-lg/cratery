@@ -9,7 +9,7 @@ use std::io::Cursor;
 use std::str::FromStr;
 
 use axum::http::StatusCode;
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt as _};
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 

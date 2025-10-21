@@ -8,10 +8,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::http::uri::InvalidUri;
-use base64::Engine;
+use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use chrono::Local;
-use futures::{FutureExt, Sink, SinkExt, StreamExt, select};
+use futures::{FutureExt as _, Sink, SinkExt as _, StreamExt as _, select};
 use log::{error, info, warn};
 use thiserror::Error;
 use tokio::net::TcpStream;
@@ -23,9 +23,9 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use crate::model::config::{Configuration, ExternalRegistry, NodeRole, NodeRoleWorker, WriteAuthConfigError};
 use crate::model::docs::{DocGenJobState, DocGenJobUpdate};
 use crate::model::worker::{JobSpecification, JobUpdate, WorkerDescriptor};
-use crate::services::{ServiceProvider, StandardServiceProvider};
+use crate::services::{ServiceProvider as _, StandardServiceProvider};
 use crate::utils::apierror::ApiError;
-use crate::utils::concurrent::{MaybeFutureExt, MaybeOrNever};
+use crate::utils::concurrent::{MaybeFutureExt as _, MaybeOrNever};
 
 /// The interval between heartbeats, in milliseconds
 const HEARTBEAT_INTERVAL: u64 = 100;

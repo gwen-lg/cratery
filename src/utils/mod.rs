@@ -12,7 +12,7 @@ use apierror::ApiError;
 use futures::future::BoxFuture;
 use smol_str::SmolStr;
 use thiserror::Error;
-use tokio::io::{self, AsyncWriteExt};
+use tokio::io::{self, AsyncWriteExt as _};
 use tokio::process::Command;
 
 use crate::utils::apierror::AsStatusCode;

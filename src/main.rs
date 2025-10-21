@@ -6,10 +6,10 @@
 
 use std::net::SocketAddr;
 use std::pin::pin;
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::sync::Arc;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, patch, post, put};
@@ -20,7 +20,7 @@ use thiserror::Error;
 
 use crate::application::Application;
 use crate::routes::AxumState;
-use crate::services::ServiceProvider;
+use crate::services::ServiceProvider as _;
 use crate::utils::sigterm::waiting_sigterm;
 
 pub mod application;

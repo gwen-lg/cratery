@@ -5,7 +5,7 @@
 //! Definition of the error type for API requests
 
 use std::backtrace::Backtrace;
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::{Display, Formatter, Write as _};
 
 use axum::http::StatusCode;
 use serde_derive::{Deserialize, Serialize};

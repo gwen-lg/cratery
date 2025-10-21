@@ -7,15 +7,15 @@
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use axum::http::Uri;
-use base64::Engine;
+use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::fs::{self, File};
-use tokio::io::{self, AsyncWrite, AsyncWriteExt, BufWriter};
+use tokio::io::{self, AsyncWrite, AsyncWriteExt as _, BufWriter};
 use tokio::process::Command;
 
 use super::{CHANNEL_NIGHTLY, CHANNEL_STABLE};

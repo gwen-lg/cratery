@@ -10,7 +10,7 @@ use futures::future::BoxFuture;
 use log::{error, info};
 use thiserror::Error;
 use tokio::fs::{File, OpenOptions, create_dir_all};
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{self, AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
 use tokio::sync::Mutex;
 
 use super::{Index, IndexError, build_package_file_path};

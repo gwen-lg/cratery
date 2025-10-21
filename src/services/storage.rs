@@ -4,7 +4,7 @@
 
 //! Storage implementations for crates data and documentation
 
-use std::io::Read;
+use std::io::Read as _;
 use std::path::Path;
 use std::sync::Arc;
 

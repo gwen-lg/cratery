@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::str::FromStr;
 
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt as _};
 use serde_derive::{Deserialize, Serialize};
 
 use crate::utils::apierror::{ApiError, error_invalid_request, specialize};

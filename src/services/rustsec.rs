@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use futures::StreamExt;
+use futures::StreamExt as _;
 use futures::lock::Mutex;
 use log::error;
 use semver::Version;

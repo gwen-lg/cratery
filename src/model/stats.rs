@@ -4,8 +4,8 @@
 
 //! Data types for global statistics
 
-use byteorder::ByteOrder;
-use chrono::{Datelike, Days, Local, NaiveDate};
+use byteorder::ByteOrder as _;
+use chrono::{Datelike as _, Days, Local, NaiveDate};
 use semver::Version;
 use serde_derive::{Deserialize, Serialize};
 

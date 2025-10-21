@@ -12,7 +12,7 @@ use tokio::runtime::Builder;
 
 use crate::application::Application;
 use crate::model::auth::ROLE_ADMIN;
-use crate::services::ServiceProvider;
+use crate::services::ServiceProvider as _;
 use crate::utils::apierror::ApiError;
 use crate::utils::axum::auth::{AuthData, Token};
 use crate::utils::token::{generate_token, hash_token};

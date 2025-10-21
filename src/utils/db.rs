@@ -8,7 +8,7 @@ use std::cmp::Ordering;
 use std::convert::TryFrom;
 use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::sync::{Arc, Mutex};
 
 use log::error;

@@ -17,6 +17,17 @@ pub trait ToErrorCode {
     fn error_code(&self) -> u16;
 }
 
+// /// Implement conversion to `ApiError` for all types than implement `Error` and `ToErrorCode`
+// impl<U> From<U> for ApiError
+// where
+//     U: ToErrorCode + std::error::Error,
+// {
+//     fn from(error: U) -> Self {
+//         //TODO: handle details from error stack ?
+//         ApiError::new(error.error_code(), error.to_string(), None)
+//     }
+// }
+
 /// Describes an API error
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ApiError {

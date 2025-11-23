@@ -482,11 +482,19 @@ impl GitIndexImpl {
     /// Commits the local changes to the index
     async fn commit_changes(&self, message: &str) -> Result<(), GitIndexError> {
         let location = PathBuf::from(&self.config.location);
-        execute_git(&location, &["add", "."]).await?;
-        execute_git(&location, &["commit", "-m", message]).await?;
-        execute_git(&location, &["update-server-info"]).await?;
+        execute_git(&location, &["add", "."])
+            .await
+            .map_err(GitIndexError::CommandAdd)?;
+        execute_git(&location, &["commit", "-m", message])
+            .await
+            .map_err(GitIndexError::CommandCommit)?;
+        execute_git(&location, &["update-server-info"])
+            .await
+            .map_err(GitIndexError::UpdateServerInfo)?;
         if let (Some(_), true) = (self.config.remote_origin.as_ref(), self.config.remote_push_changes) {
-            execute_git(&location, &["push", "origin", "master"]).await?;
+            execute_git(&location, &["push", "origin", "master"])
+                .await
+                .map_err(GitIndexError::PushOriginMaster)?;
         }
         Ok(())
     }

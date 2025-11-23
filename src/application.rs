@@ -36,7 +36,7 @@ use crate::services::emails::EmailSender;
 use crate::services::index::{GitIndexError, Index};
 use crate::services::rustsec::RustSecChecker;
 use crate::services::storage::{Storage, StorageFromConfError};
-use crate::utils::apierror::{ApiError, ToErrorCode, UnApiError, error_forbidden, error_invalid_request, specialize};
+use crate::utils::apierror::{ApiError, error_forbidden};
 use crate::utils::axum::auth::{AuthData, Token};
 use crate::utils::db::{PoolCreateError, RwSqlitePool};
 
@@ -931,12 +931,7 @@ impl Application {
     }
 
     /// Sets whether a crate can have versions completely removed
-    pub async fn set_crate_can_remove(
-        &self,
-        auth_data: &AuthData,
-        package: &str,
-        can_remove: bool,
-    ) -> Result<(), ApiError> {
+    pub async fn set_crate_can_remove(&self, auth_data: &AuthData, package: &str, can_remove: bool) -> Result<(), ApiError> {
         self.db_transaction_write("set_crate_can_remove", |app| async move {
             let authentication = app.authenticate(auth_data).await.map_err(anyhow::Error::from)?;
             app.check_can_manage_crate(&authentication, package)

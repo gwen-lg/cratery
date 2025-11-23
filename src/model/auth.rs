@@ -7,7 +7,10 @@
 use chrono::NaiveDateTime;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::utils::apierror::{ApiError, error_forbidden, error_invalid_request, specialize};
+use crate::{
+    application::AuthenticationError,
+    utils::apierror::{ApiError, error_forbidden, error_invalid_request, specialize},
+};
 
 /// The admin role
 pub const ROLE_ADMIN: &str = "admin";
@@ -69,14 +72,11 @@ impl Authentication {
     }
 
     /// Gets the email of the associated user
-    pub fn email(&self) -> Result<&str, ApiError> {
+    pub fn email(&self) -> Result<&str, AuthenticationError> {
         if let AuthenticationPrincipal::User { uid: _, email } = &self.principal {
             Ok(email)
         } else {
-            Err(specialize(
-                error_invalid_request(),
-                String::from("Expected a user to be authenticated"),
-            ))
+            Err(AuthenticationError::NoUserAuthenticated)
         }
     }
 

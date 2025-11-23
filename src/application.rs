@@ -32,7 +32,7 @@ use crate::services::emails::EmailSender;
 use crate::services::index::{GitIndexError, Index};
 use crate::services::rustsec::RustSecChecker;
 use crate::services::storage::Storage;
-use crate::utils::apierror::{ApiError, UnApiError, error_forbidden, error_invalid_request, error_unauthorized, specialize};
+use crate::utils::apierror::{ApiError, ToErrorCode, UnApiError, error_forbidden, error_invalid_request, specialize};
 use crate::utils::axum::auth::{AuthData, Token};
 use crate::utils::db::{MigrationError, PoolCreateError, RwSqlitePool};
 
@@ -424,7 +424,7 @@ impl Application {
         can_admin: bool,
     ) -> Result<RegistryUserTokenWithSecret, ApiError> {
         self.db_transaction_write("create_token", |app| async move {
-            let authentication = app.authenticate(auth_data).await?;
+            let authentication = app.authenticate(auth_data).await?; //TODO convert to not ApiError
             authentication.check_can_admin()?;
             app.database
                 .create_token(authentication.uid()?, name, can_write, can_admin)
@@ -894,6 +894,58 @@ impl Application {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum AuthenticationError {
+    #[error("missing cookie")]
+    CookieMissing,
+
+    #[error("Failed to deserialize cookie")]
+    CookieDeserialization(serde_json::Error),
+
+    #[error("User is not authenticated.")]
+    Unauthorized,
+
+    #[error("Failed to check global token")]
+    GlobalToken(#[source] sqlx::Error),
+
+    #[error("Failed to check user token")]
+    UserToken(#[source] sqlx::Error),
+
+    #[error("Failed to check user token")]
+    CheckUser(#[source] sqlx::Error),
+
+    #[error("Expected a user to be authenticated")]
+    NoUserAuthenticated,
+}
+
+impl ToErrorCode for AuthenticationError {
+    fn error_code(&self) -> u16 {
+        match self {
+            Self::Unauthorized | Self::CookieMissing => 401,
+            Self::CookieDeserialization(_) => 500,
+            Self::GlobalToken(_) => 500,
+            Self::UserToken(_) => 500,
+            Self::CheckUser(_) => 500,
+            Self::NoUserAuthenticated => 400,
+        }
+    }
+}
+
+impl AuthenticationError {
+    fn to_api_error(&self) -> ApiError {
+        let http = self.error_code();
+        if http == 401 {
+            ApiError::new(401, "User is not authenticated.", None)
+        } else if http == 400 {
+            ApiError::new(http, "The request could not be understood by the server.", None)
+        } else {
+            // if http == 500
+            //TODO: print error in log
+            ApiError::new(http, "Internal error for user authentication.", None)
+        }
+    }
+}
+
 /// The application, running with a transaction
 pub(crate) struct ApplicationWithTransaction<'a> {
     /// The application with its services
@@ -906,16 +958,20 @@ impl ApplicationWithTransaction<'_> {
     /// Attempts the authentication of a user
     async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
         if let Some(token) = &auth_data.token {
-            self.authenticate_token(token).await
+            self.authenticate_token(token).await.map_err(|err| err.to_api_error())
         } else {
-            let authentication = auth_data.try_authenticate_cookie()?.ok_or_else(error_unauthorized)?;
-            self.database.check_is_user(authentication.email()?).await?;
+            let authentication = auth_data
+                .try_authenticate_cookie()
+                .map_err(AuthenticationError::CookieDeserialization)?
+                .ok_or_else(|| AuthenticationError::CookieMissing)?;
+            let email = authentication.email().map_err(|err| err.to_api_error())?;
+            self.database.check_is_user(email).await?;
             Ok(authentication)
         }
     }
 
     /// Tries to authenticate using a token
-    async fn authenticate_token(&self, token: &Token) -> Result<Authentication, ApiError> {
+    async fn authenticate_token(&self, token: &Token) -> Result<Authentication, AuthenticationError> {
         if token.id == self.application.configuration.self_service_login
             && token.secret == self.application.configuration.self_service_token
         {

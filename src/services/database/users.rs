@@ -11,6 +11,7 @@ use chrono::Local;
 use thiserror::Error;
 
 use super::Database;
+use crate::application::AuthenticationError;
 use crate::model::auth::{
     Authentication, AuthenticationPrincipal, OAuthToken, ROLE_ADMIN, RegistryUserToken, RegistryUserTokenWithSecret, TokenKind,
     TokenUsage, find_field_in_blob,
@@ -307,18 +308,31 @@ impl Database {
     }
 
     /// Checks an authentication request with a token
-    pub async fn check_token<F, FUT>(&self, login: &str, token_secret: &str, on_usage: &F) -> Result<Authentication, ApiError>
+    pub async fn check_token<F, FUT>(
+        &self,
+        login: &str,
+        token_secret: &str,
+        on_usage: &F,
+    ) -> Result<Authentication, AuthenticationError>
     where
         F: Fn(TokenUsage) -> FUT + Sync,
         FUT: Future<Output = ()>,
     {
-        if let Some(auth) = self.check_token_global(login, token_secret, &on_usage).await? {
+        if let Some(auth) = self
+            .check_token_global(login, token_secret, &on_usage)
+            .await
+            .map_err(AuthenticationError::GlobalToken)?
+        {
             return Ok(auth);
         }
-        if let Some(auth) = self.check_token_user(login, token_secret, &on_usage).await? {
+        if let Some(auth) = self
+            .check_token_user(login, token_secret, &on_usage)
+            .await
+            .map_err(AuthenticationError::UserToken)?
+        {
             return Ok(auth);
         }
-        Err(error_unauthorized())
+        Err(AuthenticationError::Unauthorized) // error_unauthorized()
     }
 
     /// Checks whether the information provided is a user token
@@ -327,7 +341,7 @@ impl Database {
         login: &str,
         token_secret: &str,
         on_usage: &F,
-    ) -> Result<Option<Authentication>, ApiError>
+    ) -> Result<Option<Authentication>, sqlx::Error>
     where
         F: Fn(TokenUsage) -> FUT + Sync,
         FUT: Future<Output = ()>,
@@ -368,7 +382,7 @@ impl Database {
         login: &str,
         token_secret: &str,
         on_usage: &F,
-    ) -> Result<Option<Authentication>, ApiError>
+    ) -> Result<Option<Authentication>, sqlx::Error>
     where
         F: Fn(TokenUsage) -> FUT + Sync,
         FUT: Future<Output = ()>,

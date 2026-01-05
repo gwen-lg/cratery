@@ -17,7 +17,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use super::docs::{DocGenJob, DocGenJobUpdate};
 use crate::model::config::{Configuration, NodeRole};
-use crate::utils::apierror::ApiError;
+use crate::utils::apierror::{ApiError, AsStatusCode};
 use crate::utils::token::generate_token;
 
 /// The descriptor of a worker and its capabilities
@@ -282,6 +282,7 @@ pub struct NoMatchingWorkerError {
     /// The selector that was used
     pub selector: WorkerSelector,
 }
+impl AsStatusCode for NoMatchingWorkerError {}
 
 impl Display for NoMatchingWorkerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

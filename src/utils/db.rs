@@ -17,6 +17,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use sqlx::{Pool, Sqlite, SqliteConnection, Transaction};
 
 use super::apierror::ApiError;
+use crate::utils::apierror::AsStatusCode;
 use crate::utils::shared::{ResourceLock, SharedResource, StillSharedError};
 
 /// Maximum number of concurrent READ connections
@@ -212,6 +213,7 @@ pub enum MigrationError {
     /// The transaction was still shared when a migration is terminated
     SharedTransaction(StillSharedError),
 }
+impl AsStatusCode for MigrationError {}
 
 impl Display for MigrationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

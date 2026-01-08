@@ -13,48 +13,48 @@ use super::CrateVersion;
 
 /// The global stats for the registry
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GlobalStats {
+pub(crate) struct GlobalStats {
     /// Total number of downloads
     #[serde(rename = "totalDownloads")]
-    pub total_downloads: i64,
+    pub(crate) total_downloads: i64,
     /// Total number of crates
     #[serde(rename = "totalCrates")]
-    pub total_crates: i64,
+    pub(crate) total_crates: i64,
     /// The newest crate in the registry
     #[serde(rename = "cratesNewest")]
-    pub crates_newest: Vec<CrateVersion>,
+    pub(crate) crates_newest: Vec<CrateVersion>,
     /// The most downloaded crates in the registry
     #[serde(rename = "cratesMostDownloaded")]
-    pub crates_most_downloaded: Vec<CrateVersion>,
+    pub(crate) crates_most_downloaded: Vec<CrateVersion>,
     /// the last updated crates in the registry
     #[serde(rename = "cratesLastUpdated")]
-    pub crates_last_updated: Vec<CrateVersion>,
+    pub(crate) crates_last_updated: Vec<CrateVersion>,
 }
 
 /// The length of a series, i.e. the maximum number of days in the series
-pub const SERIES_LENGTH: usize = 90;
+pub(crate) const SERIES_LENGTH: usize = 90;
 
 /// The download counters for a specific version
 #[derive(Debug, Clone, Serialize)]
-pub struct DownloadStatsForVersion {
+pub(crate) struct DownloadStatsForVersion {
     /// The version
-    pub version: String,
+    pub(crate) version: String,
     /// The parsed semver version
     #[serde(skip)]
     version_semver: Version,
     /// The download counts for each day
-    pub counts: Vec<u32>,
+    pub(crate) counts: Vec<u32>,
     /// The total for the series
-    pub total: u32,
+    pub(crate) total: u32,
 }
 
 /// The download stats for a crate, for each version
 #[derive(Debug, Clone, Serialize)]
-pub struct DownloadStats {
+pub(crate) struct DownloadStats {
     /// The days in the data series
-    pub days: Vec<NaiveDate>,
+    pub(crate) days: Vec<NaiveDate>,
     /// The stats for each version
-    pub versions: Vec<DownloadStatsForVersion>,
+    pub(crate) versions: Vec<DownloadStatsForVersion>,
 }
 
 impl Default for DownloadStats {
@@ -78,7 +78,7 @@ impl Default for DownloadStats {
 
 impl DownloadStats {
     /// Adds the data for a version
-    pub fn add_version(&mut self, version: String, data: Option<&[u8]>) {
+    pub(crate) fn add_version(&mut self, version: String, data: Option<&[u8]>) {
         let mut counts = vec![0; SERIES_LENGTH];
         let mut total = 0;
         if let Some(data) = data {
@@ -100,7 +100,7 @@ impl DownloadStats {
     }
 
     /// Finalise the data by only keeping the most active versions
-    pub fn finalize(&mut self) {
+    pub(crate) fn finalize(&mut self) {
         self.versions.sort_unstable_by(|a, b| b.version_semver.cmp(&a.version_semver));
         let other = 4;
         if self.versions.len() > other {

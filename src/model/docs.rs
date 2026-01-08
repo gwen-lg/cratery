@@ -12,22 +12,22 @@ use super::worker::WorkerSelector;
 
 /// The specification for a documentation generation job
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DocGenJobSpec {
+pub(crate) struct DocGenJobSpec {
     /// The name of the crate
-    pub package: String,
+    pub(crate) package: String,
     /// The crate's version
-    pub version: String,
+    pub(crate) version: String,
     /// The targets for the crate
-    pub target: String,
+    pub(crate) target: String,
     /// Whether to use a native toolchain for the target
-    pub use_native: bool,
+    pub(crate) use_native: bool,
     /// The required capabilities
-    pub capabilities: Vec<String>,
+    pub(crate) capabilities: Vec<String>,
 }
 
 /// The state of a documentation generation job
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DocGenJobState {
+pub(crate) enum DocGenJobState {
     /// The job is queued
     Queued,
     /// The worker is working on this job
@@ -41,13 +41,13 @@ pub enum DocGenJobState {
 impl DocGenJobState {
     /// Gets whether the state indicates that the job is finished
     #[must_use]
-    pub const fn is_final(self) -> bool {
+    pub(crate) const fn is_final(self) -> bool {
         matches!(self, Self::Success | Self::Failure)
     }
 
     /// Gets the serialisation value for the database
     #[must_use]
-    pub const fn value(self) -> i64 {
+    pub(crate) const fn value(self) -> i64 {
         match self {
             Self::Queued => 0,
             Self::Working => 1,
@@ -70,7 +70,7 @@ impl From<i64> for DocGenJobState {
 
 /// The trigger for the job
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum DocGenTrigger {
+pub(crate) enum DocGenTrigger {
     /// The upload of the crate version
     Upload { by: RegistryUser },
     /// The addition of a new target for a crate
@@ -84,7 +84,7 @@ pub enum DocGenTrigger {
 impl DocGenTrigger {
     /// Gets the serialisation value for the database
     #[must_use]
-    pub const fn value(&self) -> i64 {
+    pub(crate) const fn value(&self) -> i64 {
         match self {
             Self::Upload { by: _ } => 0,
             Self::NewTarget { by: _ } => 1,
@@ -95,7 +95,7 @@ impl DocGenTrigger {
 
     /// Gets the user that triggered the job, if any
     #[must_use]
-    pub const fn by(&self) -> Option<&RegistryUser> {
+    pub(crate) const fn by(&self) -> Option<&RegistryUser> {
         match self {
             Self::Upload { by } | Self::NewTarget { by } | Self::Manual { by } => Some(by),
             Self::MissingOnLaunch => None,
@@ -116,41 +116,41 @@ impl From<(i64, Option<RegistryUser>)> for DocGenTrigger {
 
 /// A documentation generation job
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DocGenJob {
+pub(crate) struct DocGenJob {
     /// The unique identifier
-    pub id: i64,
+    pub(crate) id: i64,
     /// The name of the crate
-    pub package: String,
+    pub(crate) package: String,
     /// The crate's version
-    pub version: String,
+    pub(crate) version: String,
     /// The targets for the crate
-    pub target: String,
+    pub(crate) target: String,
     /// Whether to use a native toolchain for the target
-    pub use_native: bool,
+    pub(crate) use_native: bool,
     /// The required capabilities
-    pub capabilities: Vec<String>,
+    pub(crate) capabilities: Vec<String>,
     /// The state of the job
-    pub state: DocGenJobState,
+    pub(crate) state: DocGenJobState,
     /// Timestamp when the job was queued
     #[serde(rename = "queuedOn")]
-    pub queued_on: NaiveDateTime,
+    pub(crate) queued_on: NaiveDateTime,
     /// Timestamp when the job started execution
     #[serde(rename = "startedOn")]
-    pub started_on: NaiveDateTime,
+    pub(crate) started_on: NaiveDateTime,
     /// Timestamp when the job terminated
     #[serde(rename = "finishedOn")]
-    pub finished_on: NaiveDateTime,
+    pub(crate) finished_on: NaiveDateTime,
     /// Timestamp the last time this job was touched
     #[serde(rename = "lastUpdate")]
-    pub last_update: NaiveDateTime,
+    pub(crate) last_update: NaiveDateTime,
     /// The event that triggered the job
-    pub trigger: DocGenTrigger,
+    pub(crate) trigger: DocGenTrigger,
 }
 
 impl DocGenJob {
     /// Gets the worker selector for this job
     #[must_use]
-    pub fn get_worker_selector(&self) -> WorkerSelector {
+    pub(crate) fn get_worker_selector(&self) -> WorkerSelector {
         let mut selector = if self.use_native {
             WorkerSelector::new_native_target(self.target.clone())
         } else {
@@ -163,22 +163,22 @@ impl DocGenJob {
 
 /// An update to a documentation generation job
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DocGenJobUpdate {
+pub(crate) struct DocGenJobUpdate {
     /// The unique identifier of the associated job
     #[serde(rename = "jobId")]
-    pub job_id: i64,
+    pub(crate) job_id: i64,
     /// The new state for the job
-    pub state: DocGenJobState,
+    pub(crate) state: DocGenJobState,
     /// The update timestamp
     #[serde(rename = "lastUpdate")]
-    pub last_update: NaiveDateTime,
+    pub(crate) last_update: NaiveDateTime,
     /// The appended log, if any
-    pub log: Option<String>,
+    pub(crate) log: Option<String>,
 }
 
 /// An event for the documentation generation service
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum DocGenEvent {
+pub(crate) enum DocGenEvent {
     /// An new job was queued
     Queued(Box<DocGenJob>),
     /// A job was updated

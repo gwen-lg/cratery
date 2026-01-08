@@ -19,7 +19,7 @@ use crate::utils::FaillibleFuture;
 use crate::utils::apierror::ApiError;
 
 /// Backing storage implementations
-pub trait Storage {
+pub(crate) trait Storage {
     /// Stores the data for a crate
     fn store_crate<'a>(&'a self, metadata: &'a CrateMetadata, content: Vec<u8>) -> FaillibleFuture<'a, ()>;
 
@@ -44,12 +44,12 @@ pub trait Storage {
 
 /// Gets the backing storage for the documentation
 #[must_use]
-pub fn get_service(config: &Configuration) -> Arc<dyn Storage + Send + Sync> {
+pub(crate) fn get_service(config: &Configuration) -> Arc<dyn Storage + Send + Sync> {
     Arc::new(StorageImpl::try_from(config).unwrap())
 }
 
 /// Backing storage
-pub struct StorageImpl {
+pub(crate) struct StorageImpl {
     opendal_operator: Operator,
 }
 
@@ -234,7 +234,7 @@ impl StorageImpl {
 }
 
 /// Extract the content of the README from the
-pub fn extract_readme(crate_content: &[u8]) -> Result<Vec<u8>, ApiError> {
+pub(crate) fn extract_readme(crate_content: &[u8]) -> Result<Vec<u8>, ApiError> {
     let decoder = GzDecoder::new(crate_content);
     let mut archive = Archive::new(decoder);
     let mut buffer = Vec::new();

@@ -15,7 +15,7 @@ use crate::utils::FaillibleFuture;
 use crate::utils::apierror::ApiError;
 
 /// Index implementations
-pub trait Index {
+pub(crate) trait Index {
     /// Gets the full path to a file in the index
     fn get_index_file<'a>(&'a self, file_path: &'a Path) -> FaillibleFuture<'a, Option<PathBuf>>;
 
@@ -37,7 +37,7 @@ pub trait Index {
 
 /// Gets path elements for a package in the file system
 #[must_use]
-pub fn package_file_path(lowercase: &str) -> (&str, Option<&str>) {
+pub(crate) fn package_file_path(lowercase: &str) -> (&str, Option<&str>) {
     match lowercase.len() {
         0 => panic!("Empty name is not possible"),
         1 => ("1", None),
@@ -49,7 +49,7 @@ pub fn package_file_path(lowercase: &str) -> (&str, Option<&str>) {
 
 /// Produce the path elements that contains the metadata for the crate
 #[must_use]
-pub fn build_package_file_path(mut root: PathBuf, name: &str) -> PathBuf {
+pub(crate) fn build_package_file_path(mut root: PathBuf, name: &str) -> PathBuf {
     let lowercase = name.to_ascii_lowercase();
     let (first, second) = package_file_path(&lowercase);
 
@@ -63,7 +63,7 @@ pub fn build_package_file_path(mut root: PathBuf, name: &str) -> PathBuf {
 }
 
 /// Gets the index service
-pub async fn get_service(config: &Configuration, expect_empty: bool) -> Result<Arc<dyn Index + Send + Sync>, ApiError> {
+pub(crate) async fn get_service(config: &Configuration, expect_empty: bool) -> Result<Arc<dyn Index + Send + Sync>, ApiError> {
     let index = git::GitIndex::new(config.get_index_git_config(), expect_empty).await?;
     Ok(Arc::new(index))
 }

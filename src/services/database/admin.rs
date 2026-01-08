@@ -14,7 +14,7 @@ use crate::utils::token::{generate_token, hash_token};
 
 impl Database {
     /// Gets the global tokens for the registry, usually for CI purposes
-    pub async fn get_global_tokens(&self) -> Result<Vec<RegistryUserToken>, ApiError> {
+    pub(crate) async fn get_global_tokens(&self) -> Result<Vec<RegistryUserToken>, ApiError> {
         let rows = sqlx::query!("SELECT id, name, lastUsed AS last_used FROM RegistryGlobalToken ORDER BY id",)
             .fetch_all(&mut *self.transaction.borrow().await)
             .await?;
@@ -31,7 +31,7 @@ impl Database {
     }
 
     /// Creates a global token for the registry
-    pub async fn create_global_token(&self, name: &str) -> Result<RegistryUserTokenWithSecret, ApiError> {
+    pub(crate) async fn create_global_token(&self, name: &str) -> Result<RegistryUserTokenWithSecret, ApiError> {
         let row = sqlx::query!("SELECT id FROM RegistryGlobalToken WHERE name = $1 LIMIT 1", name)
             .fetch_optional(&mut *self.transaction.borrow().await)
             .await?;
@@ -64,7 +64,7 @@ impl Database {
     }
 
     /// Revokes a global token for the registry
-    pub async fn revoke_global_token(&self, token_id: i64) -> Result<(), ApiError> {
+    pub(crate) async fn revoke_global_token(&self, token_id: i64) -> Result<(), ApiError> {
         sqlx::query!("DELETE FROM RegistryGlobalToken WHERE id = $1", token_id)
             .execute(&mut *self.transaction.borrow().await)
             .await?;

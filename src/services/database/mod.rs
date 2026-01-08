@@ -4,11 +4,11 @@
 
 //! Service for persisting information in the database
 
-pub mod admin;
-pub mod jobs;
-pub mod packages;
-pub mod stats;
-pub mod users;
+pub(crate) mod admin;
+pub(crate) mod jobs;
+pub(crate) mod packages;
+pub(crate) mod stats;
+pub(crate) mod users;
 
 use std::future::Future;
 
@@ -23,7 +23,7 @@ use crate::utils::db::{AppTransaction, RwSqlitePool};
 /// # Errors
 ///
 /// Returns an instance of the `E` type argument
-pub async fn db_transaction_read<F, FUT, T, E>(pool: &RwSqlitePool, workload: F) -> Result<T, E>
+pub(crate) async fn db_transaction_read<F, FUT, T, E>(pool: &RwSqlitePool, workload: F) -> Result<T, E>
 where
     F: FnOnce(Database) -> FUT,
     FUT: Future<Output = Result<T, E>>,
@@ -56,7 +56,11 @@ where
 /// # Errors
 ///
 /// Returns an instance of the `E` type argument
-pub async fn db_transaction_write<F, FUT, T, E>(pool: &RwSqlitePool, operation: &'static str, workload: F) -> Result<T, E>
+pub(crate) async fn db_transaction_write<F, FUT, T, E>(
+    pool: &RwSqlitePool,
+    operation: &'static str,
+    workload: F,
+) -> Result<T, E>
 where
     F: FnOnce(Database) -> FUT,
     FUT: Future<Output = Result<T, E>>,
@@ -83,14 +87,14 @@ where
 }
 
 /// Represents the application
-pub struct Database {
+pub(crate) struct Database {
     /// The connection
     pub(crate) transaction: AppTransaction,
 }
 
 impl Database {
     /// Checks the security for an operation and returns the identifier of the target user (login)
-    pub async fn check_is_user(&self, email: &str) -> Result<i64, ApiError> {
+    pub(crate) async fn check_is_user(&self, email: &str) -> Result<i64, ApiError> {
         let maybe_row = sqlx::query!("SELECT id FROM RegistryUser WHERE isActive = TRUE AND email = $1", email)
             .fetch_optional(&mut *self.transaction.borrow().await)
             .await?;
@@ -99,7 +103,7 @@ impl Database {
     }
 
     /// Checks that a user is an admin
-    pub async fn get_is_admin(&self, uid: i64) -> Result<bool, ApiError> {
+    pub(crate) async fn get_is_admin(&self, uid: i64) -> Result<bool, ApiError> {
         let roles = sqlx::query!("SELECT roles FROM RegistryUser WHERE id = $1", uid)
             .fetch_optional(&mut *self.transaction.borrow().await)
             .await?
@@ -109,13 +113,13 @@ impl Database {
     }
 
     /// Checks that a user is an admin
-    pub async fn check_is_admin(&self, uid: i64) -> Result<(), ApiError> {
+    pub(crate) async fn check_is_admin(&self, uid: i64) -> Result<(), ApiError> {
         let is_admin = self.get_is_admin(uid).await?;
         if is_admin { Ok(()) } else { Err(error_forbidden()) }
     }
 
     /// Checks that a package exists
-    pub async fn check_crate_exists(&self, package: &str, version: &str) -> Result<(), ApiError> {
+    pub(crate) async fn check_crate_exists(&self, package: &str, version: &str) -> Result<(), ApiError> {
         let _row = sqlx::query!(
             "SELECT id FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
             package,
@@ -128,7 +132,7 @@ impl Database {
     }
 
     /// Checks the ownership of a package
-    pub async fn check_is_crate_manager(&self, uid: i64, package: &str) -> Result<i64, ApiError> {
+    pub(crate) async fn check_is_crate_manager(&self, uid: i64, package: &str) -> Result<i64, ApiError> {
         if self.check_is_admin(uid).await.is_ok() {
             return Ok(uid);
         }

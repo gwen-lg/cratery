@@ -24,7 +24,7 @@ const DB_MAX_READ_CONNECTIONS: u32 = 16;
 
 /// A pool of sqlite connection that distinguish read-only and write connections
 #[derive(Debug, Clone)]
-pub struct RwSqlitePool {
+pub(crate) struct RwSqlitePool {
     /// The pool of read-only connections
     read: Pool<Sqlite>,
     /// The pool of write connections
@@ -35,7 +35,7 @@ pub struct RwSqlitePool {
 
 impl RwSqlitePool {
     /// Creates a new pool
-    pub fn new(url: &str) -> Result<Self, ApiError> {
+    pub(crate) fn new(url: &str) -> Result<Self, ApiError> {
         let current_write_op = Arc::new(Mutex::new(None));
         Ok(Self {
             read: SqlitePoolOptions::new()
@@ -63,14 +63,14 @@ impl RwSqlitePool {
     }
 
     /// Acquires a READ-only connection
-    pub async fn acquire_read(&self) -> Result<AppTransaction, sqlx::Error> {
+    pub(crate) async fn acquire_read(&self) -> Result<AppTransaction, sqlx::Error> {
         Ok(AppTransaction {
             inner: SharedResource::new(self.read.begin().await?),
         })
     }
 
     /// Acquires a write connection
-    pub async fn acquire_write(&self, operation: &'static str) -> Result<AppTransaction, sqlx::Error> {
+    pub(crate) async fn acquire_write(&self, operation: &'static str) -> Result<AppTransaction, sqlx::Error> {
         match self.write.begin().await {
             Ok(c) => {
                 *self.current_write_op.lock().unwrap() = Some(operation);
@@ -90,18 +90,18 @@ impl RwSqlitePool {
 }
 
 /// The name of the metadata for the schema version
-pub const SCHEMA_METADATA_VERSION: &str = "version";
+pub(crate) const SCHEMA_METADATA_VERSION: &str = "version";
 
 /// A simple application transaction
 #[derive(Clone)]
-pub struct AppTransaction {
+pub(crate) struct AppTransaction {
     /// The inner transaction
     inner: SharedResource<Transaction<'static, Sqlite>>,
 }
 
 impl AppTransaction {
     /// Borrows the shared transaction
-    pub async fn borrow(&self) -> CheckedOutAppTransaction<'_> {
+    pub(crate) async fn borrow(&self) -> CheckedOutAppTransaction<'_> {
         let lock = self.inner.borrow().await;
         CheckedOutAppTransaction { lock }
     }
@@ -111,13 +111,13 @@ impl AppTransaction {
     /// # Errors
     ///
     /// Return a `StillSharedError` when the resource is still shared and the original cannot be given back.
-    pub fn into_original(self) -> Result<Transaction<'static, Sqlite>, StillSharedError> {
+    pub(crate) fn into_original(self) -> Result<Transaction<'static, Sqlite>, StillSharedError> {
         self.inner.into_original()
     }
 }
 
 /// A transaction that has been checked out for work
-pub struct CheckedOutAppTransaction<'t> {
+pub(crate) struct CheckedOutAppTransaction<'t> {
     /// The lock for the mutex
     lock: ResourceLock<'t, Transaction<'static, Sqlite>>,
 }
@@ -137,22 +137,22 @@ impl DerefMut for CheckedOutAppTransaction<'_> {
 }
 
 /// Represents a migration
-pub struct Migration<'a> {
+pub(crate) struct Migration<'a> {
     /// The target version
-    pub target: &'a str,
+    pub(crate) target: &'a str,
     /// The implementation of this migration
-    pub content: MigrationContent<'a>,
+    pub(crate) content: MigrationContent<'a>,
 }
 
 /// The implementation of a migration
-pub enum MigrationContent<'a> {
+pub(crate) enum MigrationContent<'a> {
     /// The script to reach the target version
     Sql(&'a [u8]),
 }
 
 /// Error when a version number is invalid
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InvalidVersionNumber(pub String);
+pub(crate) struct InvalidVersionNumber(pub(crate) String);
 
 impl Display for InvalidVersionNumber {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -164,7 +164,7 @@ impl std::error::Error for InvalidVersionNumber {}
 
 /// Represents a version number for a schema
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
-pub struct VersionNumber(u32, u32, u32);
+pub(crate) struct VersionNumber(u32, u32, u32);
 
 impl TryFrom<&str> for VersionNumber {
     type Error = InvalidVersionNumber;
@@ -204,7 +204,7 @@ impl Ord for VersionNumber {
 
 /// An error during a migration
 #[derive(Debug)]
-pub enum MigrationError {
+pub(crate) enum MigrationError {
     /// Error when the version number is invalid
     InvalidVersion(InvalidVersionNumber),
     /// An SQL error

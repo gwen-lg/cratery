@@ -31,7 +31,7 @@ use crate::utils::concurrent::n_at_a_time;
 use crate::utils::db::RwSqlitePool;
 
 /// Service to generate documentation for a crate
-pub trait DocsGenerator {
+pub(crate) trait DocsGenerator {
     /// Gets all the jobs
     fn get_jobs(&self) -> FaillibleFuture<'_, Vec<DocGenJob>>;
 
@@ -46,7 +46,7 @@ pub trait DocsGenerator {
 }
 
 /// Gets the documentation generation service
-pub fn get_service(
+pub(crate) fn get_service(
     configuration: Arc<Configuration>,
     service_db_pool: RwSqlitePool,
     service_storage: Arc<dyn Storage + Send + Sync>,
@@ -274,7 +274,7 @@ fn job_log_location(job: &DocGenJob) -> String {
 }
 
 /// Executes a documentation generation job
-pub async fn generate_doc_for_job(
+pub(crate) async fn generate_doc_for_job(
     configuration: &Configuration,
     service_storage: Arc<dyn Storage + Send + Sync>,
     job: &DocGenJob,

@@ -14,7 +14,7 @@ use crate::utils::comma_sep_to_vec;
 
 impl Database {
     /// Gets the documentation generation jobs
-    pub async fn get_docgen_jobs(&self) -> Result<Vec<DocGenJob>, ApiError> {
+    pub(crate) async fn get_docgen_jobs(&self) -> Result<Vec<DocGenJob>, ApiError> {
         let rows = sqlx::query!(
             "SELECT id, package, version, target, useNative AS usenative, capabilities, state,
             queuedOn AS queued_on, startedOn AS started_on, finishedOn AS finished_on, lastUpdate AS last_update,
@@ -52,7 +52,7 @@ impl Database {
     }
 
     /// Gets a single documentation job
-    pub async fn get_docgen_job(&self, job_id: i64) -> Result<DocGenJob, ApiError> {
+    pub(crate) async fn get_docgen_job(&self, job_id: i64) -> Result<DocGenJob, ApiError> {
         let row = sqlx::query!(
             "SELECT id, package, version, target, useNative AS usenative, capabilities, state,
             queuedOn AS queued_on, startedOn AS started_on, finishedOn AS finished_on, lastUpdate AS last_update,
@@ -89,7 +89,7 @@ impl Database {
     }
 
     /// Creates and queue a single documentation job
-    pub async fn create_docgen_job(&self, spec: &DocGenJobSpec, trigger: &DocGenTrigger) -> Result<DocGenJob, ApiError> {
+    pub(crate) async fn create_docgen_job(&self, spec: &DocGenJobSpec, trigger: &DocGenTrigger) -> Result<DocGenJob, ApiError> {
         // look for already existing queued job
         let state_value = DocGenJobState::Queued.value();
         let row = sqlx::query!(
@@ -177,7 +177,7 @@ impl Database {
     }
 
     /// Attempts to get the next available job
-    pub async fn get_next_docgen_job(&self) -> Result<Option<DocGenJob>, ApiError> {
+    pub(crate) async fn get_next_docgen_job(&self) -> Result<Option<DocGenJob>, ApiError> {
         let state_value = DocGenJobState::Queued.value();
         let row = sqlx::query!(
             "SELECT id, package, version, target, useNative AS usenative, capabilities, state,
@@ -216,7 +216,7 @@ impl Database {
     }
 
     /// Updates an existing job
-    pub async fn update_docgen_job(&self, job_id: i64, state: DocGenJobState) -> Result<(), ApiError> {
+    pub(crate) async fn update_docgen_job(&self, job_id: i64, state: DocGenJobState) -> Result<(), ApiError> {
         let now = Local::now().naive_local();
         let state_value = state.value();
         if state == DocGenJobState::Working {

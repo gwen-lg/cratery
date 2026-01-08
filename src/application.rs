@@ -35,9 +35,9 @@ use crate::utils::axum::auth::{AuthData, Token};
 use crate::utils::db::RwSqlitePool;
 
 /// The state of this application for axum
-pub struct Application {
+pub(crate) struct Application {
     /// The configuration
-    pub configuration: Arc<Configuration>,
+    pub(crate) configuration: Arc<Configuration>,
     /// The database pool
     service_db_pool: RwSqlitePool,
     /// The storage layer
@@ -57,7 +57,7 @@ pub struct Application {
     /// Sender to use to notify about events that will be asynchronously handled
     app_events_sender: Sender<AppEvent>,
     /// The connected worker nodes
-    pub worker_nodes: WorkersManager,
+    pub(crate) worker_nodes: WorkersManager,
 }
 
 /// The empty database
@@ -65,7 +65,7 @@ const DB_EMPTY: &[u8] = include_bytes!("empty.db");
 
 impl Application {
     /// Creates a new application
-    pub async fn launch<P: ServiceProvider>(configuration: Configuration) -> Result<Arc<Self>, ApiError> {
+    pub(crate) async fn launch<P: ServiceProvider>(configuration: Configuration) -> Result<Arc<Self>, ApiError> {
         // load configuration
         let configuration = Arc::new(configuration);
 
@@ -155,13 +155,13 @@ impl Application {
 
     /// Gets the storage service
     #[must_use]
-    pub fn get_service_storage(&self) -> Arc<dyn Storage + Send + Sync> {
+    pub(crate) fn get_service_storage(&self) -> Arc<dyn Storage + Send + Sync> {
         self.service_storage.clone()
     }
 
     /// Gets the index service
     #[must_use]
-    pub fn get_service_index(&self) -> &(dyn Index + Send + Sync) {
+    pub(crate) fn get_service_index(&self) -> &(dyn Index + Send + Sync) {
         self.service_index.as_ref()
     }
 
@@ -249,13 +249,13 @@ impl Application {
     }
 
     /// Attempts the authentication of a user
-    pub async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
+    pub(crate) async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
         self.db_transaction_read(|app| async move { app.authenticate(auth_data).await })
             .await
     }
 
     /// Gets the registry configuration
-    pub async fn get_registry_information(&self, auth_data: &AuthData) -> Result<RegistryInformation, ApiError> {
+    pub(crate) async fn get_registry_information(&self, auth_data: &AuthData) -> Result<RegistryInformation, ApiError> {
         let _authentication = self.authenticate(auth_data).await?;
         Ok(RegistryInformation {
             registry_name: self.configuration.self_local_name.clone(),
@@ -267,7 +267,7 @@ impl Application {
     }
 
     /// Gets the connected worker nodes
-    pub async fn get_workers(&self, auth_data: &AuthData) -> Result<Vec<WorkerPublicData>, ApiError> {
+    pub(crate) async fn get_workers(&self, auth_data: &AuthData) -> Result<Vec<WorkerPublicData>, ApiError> {
         let authentication = self.authenticate(auth_data).await?;
         if !authentication.can_admin {
             return Err(error_forbidden());
@@ -276,7 +276,7 @@ impl Application {
     }
 
     /// Adds a listener to workers updates
-    pub async fn get_workers_updates(&self, auth_data: &AuthData) -> Result<Receiver<WorkerEvent>, ApiError> {
+    pub(crate) async fn get_workers_updates(&self, auth_data: &AuthData) -> Result<Receiver<WorkerEvent>, ApiError> {
         let authentication = self.authenticate(auth_data).await?;
         if !authentication.can_admin {
             return Err(error_forbidden());
@@ -287,7 +287,7 @@ impl Application {
     }
 
     /// Gets the data about the current user
-    pub async fn get_current_user(&self, auth_data: &AuthData) -> Result<RegistryUser, ApiError> {
+    pub(crate) async fn get_current_user(&self, auth_data: &AuthData) -> Result<RegistryUser, ApiError> {
         self.db_transaction_read(|app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.database.get_user_profile(authentication.uid()?).await
@@ -296,7 +296,7 @@ impl Application {
     }
 
     /// Attempts to login using an OAuth code
-    pub async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, ApiError> {
+    pub(crate) async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, ApiError> {
         self.db_transaction_write("login_with_oauth_code", |app| async move {
             app.database.login_with_oauth_code(&self.configuration, code).await
         })
@@ -304,7 +304,7 @@ impl Application {
     }
 
     /// Gets the known users
-    pub async fn get_users(&self, auth_data: &AuthData) -> Result<Vec<RegistryUser>, ApiError> {
+    pub(crate) async fn get_users(&self, auth_data: &AuthData) -> Result<Vec<RegistryUser>, ApiError> {
         self.db_transaction_read(|app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
@@ -314,7 +314,7 @@ impl Application {
     }
 
     /// Updates the information of a user
-    pub async fn update_user(&self, auth_data: &AuthData, target: &RegistryUser) -> Result<RegistryUser, ApiError> {
+    pub(crate) async fn update_user(&self, auth_data: &AuthData, target: &RegistryUser) -> Result<RegistryUser, ApiError> {
         self.db_transaction_write("update_user", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             let principal_uid = authentication.uid()?;
@@ -332,7 +332,7 @@ impl Application {
     }
 
     /// Attempts to deactivate a user
-    pub async fn deactivate_user(&self, auth_data: &AuthData, target: &str) -> Result<(), ApiError> {
+    pub(crate) async fn deactivate_user(&self, auth_data: &AuthData, target: &str) -> Result<(), ApiError> {
         self.db_transaction_write("deactivate_user", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             let principal_uid = app.check_can_admin_registry(&authentication).await?;
@@ -342,7 +342,7 @@ impl Application {
     }
 
     /// Attempts to re-activate a user
-    pub async fn reactivate_user(&self, auth_data: &AuthData, target: &str) -> Result<(), ApiError> {
+    pub(crate) async fn reactivate_user(&self, auth_data: &AuthData, target: &str) -> Result<(), ApiError> {
         self.db_transaction_write("reactivate_user", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
@@ -352,7 +352,7 @@ impl Application {
     }
 
     /// Attempts to delete a user
-    pub async fn delete_user(&self, auth_data: &AuthData, target: &str) -> Result<(), ApiError> {
+    pub(crate) async fn delete_user(&self, auth_data: &AuthData, target: &str) -> Result<(), ApiError> {
         self.db_transaction_write("delete_user", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             let principal_uid = app.check_can_admin_registry(&authentication).await?;
@@ -362,7 +362,7 @@ impl Application {
     }
 
     /// Gets the tokens for a user
-    pub async fn get_tokens(&self, auth_data: &AuthData) -> Result<Vec<RegistryUserToken>, ApiError> {
+    pub(crate) async fn get_tokens(&self, auth_data: &AuthData) -> Result<Vec<RegistryUserToken>, ApiError> {
         self.db_transaction_read(|app| async move {
             let authentication = app.authenticate(auth_data).await?;
             authentication.check_can_admin()?;
@@ -372,7 +372,7 @@ impl Application {
     }
 
     /// Creates a token for the current user
-    pub async fn create_token(
+    pub(crate) async fn create_token(
         &self,
         auth_data: &AuthData,
         name: &str,
@@ -390,7 +390,7 @@ impl Application {
     }
 
     /// Revoke a previous token
-    pub async fn revoke_token(&self, auth_data: &AuthData, token_id: i64) -> Result<(), ApiError> {
+    pub(crate) async fn revoke_token(&self, auth_data: &AuthData, token_id: i64) -> Result<(), ApiError> {
         self.db_transaction_write("revoke_token", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             authentication.check_can_admin()?;
@@ -400,7 +400,7 @@ impl Application {
     }
 
     /// Gets the global tokens for the registry, usually for CI purposes
-    pub async fn get_global_tokens(&self, auth_data: &AuthData) -> Result<Vec<RegistryUserToken>, ApiError> {
+    pub(crate) async fn get_global_tokens(&self, auth_data: &AuthData) -> Result<Vec<RegistryUserToken>, ApiError> {
         self.db_transaction_read(|app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
@@ -410,7 +410,11 @@ impl Application {
     }
 
     /// Creates a global token for the registry
-    pub async fn create_global_token(&self, auth_data: &AuthData, name: &str) -> Result<RegistryUserTokenWithSecret, ApiError> {
+    pub(crate) async fn create_global_token(
+        &self,
+        auth_data: &AuthData,
+        name: &str,
+    ) -> Result<RegistryUserTokenWithSecret, ApiError> {
         self.db_transaction_write("create_global_token", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
@@ -420,7 +424,7 @@ impl Application {
     }
 
     /// Revokes a global token for the registry
-    pub async fn revoke_global_token(&self, auth_data: &AuthData, token_id: i64) -> Result<(), ApiError> {
+    pub(crate) async fn revoke_global_token(&self, auth_data: &AuthData, token_id: i64) -> Result<(), ApiError> {
         self.db_transaction_write("revoke_global_token", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_admin_registry(&authentication).await?;
@@ -430,7 +434,11 @@ impl Application {
     }
 
     /// Publish a crate
-    pub async fn publish_crate_version(&self, auth_data: &AuthData, content: &[u8]) -> Result<CrateUploadResult, ApiError> {
+    pub(crate) async fn publish_crate_version(
+        &self,
+        auth_data: &AuthData,
+        content: &[u8],
+    ) -> Result<CrateUploadResult, ApiError> {
         // deserialize payload
         let package = CrateUploadData::new(content)?;
         let index_data = package.build_index_data();
@@ -481,7 +489,7 @@ impl Application {
     }
 
     /// Gets all the data about a crate
-    pub async fn get_crate_info(&self, auth_data: &AuthData, package: &str) -> Result<CrateInfo, ApiError> {
+    pub(crate) async fn get_crate_info(&self, auth_data: &AuthData, package: &str) -> Result<CrateInfo, ApiError> {
         let info = self
             .db_transaction_read(|app| async move {
                 let _authentication = app.authenticate(auth_data).await?;
@@ -498,7 +506,7 @@ impl Application {
     }
 
     /// Downloads the last README for a crate
-    pub async fn get_crate_last_readme(&self, auth_data: &AuthData, package: &str) -> Result<Vec<u8>, ApiError> {
+    pub(crate) async fn get_crate_last_readme(&self, auth_data: &AuthData, package: &str) -> Result<Vec<u8>, ApiError> {
         let version = self
             .db_transaction_read(|app| async move {
                 let _authentication = app.authenticate(auth_data).await?;
@@ -511,14 +519,24 @@ impl Application {
     }
 
     /// Downloads the README for a crate
-    pub async fn get_crate_readme(&self, auth_data: &AuthData, package: &str, version: &str) -> Result<Vec<u8>, ApiError> {
+    pub(crate) async fn get_crate_readme(
+        &self,
+        auth_data: &AuthData,
+        package: &str,
+        version: &str,
+    ) -> Result<Vec<u8>, ApiError> {
         let _authentication = self.authenticate(auth_data).await?;
         let readme = self.service_storage.download_crate_readme(package, version).await?;
         Ok(readme)
     }
 
     /// Downloads the content for a crate
-    pub async fn get_crate_content(&self, auth_data: &AuthData, package: &str, version: &str) -> Result<Vec<u8>, ApiError> {
+    pub(crate) async fn get_crate_content(
+        &self,
+        auth_data: &AuthData,
+        package: &str,
+        version: &str,
+    ) -> Result<Vec<u8>, ApiError> {
         let public_read = self.configuration.self_public_read;
         self.db_transaction_read(|app| async move {
             if !public_read {
@@ -539,7 +557,12 @@ impl Application {
     }
 
     /// Completely removes a version from the registry
-    pub async fn remove_crate_version(&self, auth_data: &AuthData, package: &str, version: &str) -> Result<(), ApiError> {
+    pub(crate) async fn remove_crate_version(
+        &self,
+        auth_data: &AuthData,
+        package: &str,
+        version: &str,
+    ) -> Result<(), ApiError> {
         self.db_transaction_write("remove_crate_version", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
@@ -551,7 +574,7 @@ impl Application {
     }
 
     /// Yank a crate version
-    pub async fn yank_crate_version(
+    pub(crate) async fn yank_crate_version(
         &self,
         auth_data: &AuthData,
         package: &str,
@@ -566,7 +589,7 @@ impl Application {
     }
 
     /// Unyank a crate version
-    pub async fn unyank_crate_version(
+    pub(crate) async fn unyank_crate_version(
         &self,
         auth_data: &AuthData,
         package: &str,
@@ -581,7 +604,7 @@ impl Application {
     }
 
     /// Gets the packages that need documentation generation
-    pub async fn get_undocumented_crates(&self, auth_data: &AuthData) -> Result<Vec<DocGenJobSpec>, ApiError> {
+    pub(crate) async fn get_undocumented_crates(&self, auth_data: &AuthData) -> Result<Vec<DocGenJobSpec>, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
             app.database
@@ -592,19 +615,19 @@ impl Application {
     }
 
     /// Gets the documentation jobs
-    pub async fn get_doc_gen_jobs(&self, auth_data: &AuthData) -> Result<Vec<DocGenJob>, ApiError> {
+    pub(crate) async fn get_doc_gen_jobs(&self, auth_data: &AuthData) -> Result<Vec<DocGenJob>, ApiError> {
         let _authentication = self.authenticate(auth_data).await?;
         self.service_docs_generator.get_jobs().await
     }
 
     /// Gets the log for a documentation generation job
-    pub async fn get_doc_gen_job_log(&self, auth_data: &AuthData, job_id: i64) -> Result<String, ApiError> {
+    pub(crate) async fn get_doc_gen_job_log(&self, auth_data: &AuthData, job_id: i64) -> Result<String, ApiError> {
         let _authentication = self.authenticate(auth_data).await?;
         self.service_docs_generator.get_job_log(job_id).await
     }
 
     /// Adds a listener to job updates
-    pub async fn get_doc_gen_job_updates(&self, auth_data: &AuthData) -> Result<Receiver<DocGenEvent>, ApiError> {
+    pub(crate) async fn get_doc_gen_job_updates(&self, auth_data: &AuthData) -> Result<Receiver<DocGenEvent>, ApiError> {
         let _authentication = self.authenticate(auth_data).await?;
         let (sender, receiver) = channel(16);
         self.service_docs_generator.add_listener(sender).await?;
@@ -612,7 +635,7 @@ impl Application {
     }
 
     /// Force the re-generation for the documentation of a package
-    pub async fn regen_crate_version_doc(
+    pub(crate) async fn regen_crate_version_doc(
         &self,
         auth_data: &AuthData,
         package: &str,
@@ -653,7 +676,7 @@ impl Application {
     }
 
     /// Gets all the packages that are outdated while also being the latest version
-    pub async fn get_crates_outdated_heads(&self, auth_data: &AuthData) -> Result<Vec<CrateVersion>, ApiError> {
+    pub(crate) async fn get_crates_outdated_heads(&self, auth_data: &AuthData) -> Result<Vec<CrateVersion>, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
             app.database.get_crates_outdated_heads().await
@@ -662,7 +685,7 @@ impl Application {
     }
 
     /// Gets the download statistics for a crate
-    pub async fn get_crate_dl_stats(&self, auth_data: &AuthData, package: &str) -> Result<DownloadStats, ApiError> {
+    pub(crate) async fn get_crate_dl_stats(&self, auth_data: &AuthData, package: &str) -> Result<DownloadStats, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
             app.database.get_crate_dl_stats(package).await
@@ -671,7 +694,7 @@ impl Application {
     }
 
     /// Gets the list of owners for a package
-    pub async fn get_crate_owners(&self, auth_data: &AuthData, package: &str) -> Result<OwnersQueryResult, ApiError> {
+    pub(crate) async fn get_crate_owners(&self, auth_data: &AuthData, package: &str) -> Result<OwnersQueryResult, ApiError> {
         let public_read = self.configuration.self_public_read;
         self.db_transaction_read(|app| async move {
             if !public_read {
@@ -683,7 +706,7 @@ impl Application {
     }
 
     /// Add owners to a package
-    pub async fn add_crate_owners(
+    pub(crate) async fn add_crate_owners(
         &self,
         auth_data: &AuthData,
         package: &str,
@@ -698,7 +721,7 @@ impl Application {
     }
 
     /// Remove owners from a package
-    pub async fn remove_crate_owners(
+    pub(crate) async fn remove_crate_owners(
         &self,
         auth_data: &AuthData,
         package: &str,
@@ -713,7 +736,11 @@ impl Application {
     }
 
     /// Gets the targets for a crate
-    pub async fn get_crate_targets(&self, auth_data: &AuthData, package: &str) -> Result<Vec<CrateInfoTarget>, ApiError> {
+    pub(crate) async fn get_crate_targets(
+        &self,
+        auth_data: &AuthData,
+        package: &str,
+    ) -> Result<Vec<CrateInfoTarget>, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
             app.database.get_crate_targets(package).await
@@ -722,7 +749,7 @@ impl Application {
     }
 
     /// Sets the targets for a crate
-    pub async fn set_crate_targets(
+    pub(crate) async fn set_crate_targets(
         &self,
         auth_data: &AuthData,
         package: &str,
@@ -759,7 +786,11 @@ impl Application {
     }
 
     /// Gets the required capabilities for a crate
-    pub async fn get_crate_required_capabilities(&self, auth_data: &AuthData, package: &str) -> Result<Vec<String>, ApiError> {
+    pub(crate) async fn get_crate_required_capabilities(
+        &self,
+        auth_data: &AuthData,
+        package: &str,
+    ) -> Result<Vec<String>, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
             app.database.get_crate_required_capabilities(package).await
@@ -768,7 +799,7 @@ impl Application {
     }
 
     /// Sets the required capabilities for a crate
-    pub async fn set_crate_required_capabilities(
+    pub(crate) async fn set_crate_required_capabilities(
         &self,
         auth_data: &AuthData,
         package: &str,
@@ -785,7 +816,12 @@ impl Application {
     }
 
     /// Sets the deprecation status on a crate
-    pub async fn set_crate_deprecation(&self, auth_data: &AuthData, package: &str, deprecated: bool) -> Result<(), ApiError> {
+    pub(crate) async fn set_crate_deprecation(
+        &self,
+        auth_data: &AuthData,
+        package: &str,
+        deprecated: bool,
+    ) -> Result<(), ApiError> {
         self.db_transaction_write("set_crate_deprecation", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
@@ -795,7 +831,12 @@ impl Application {
     }
 
     /// Sets whether a crate can have versions completely removed
-    pub async fn set_crate_can_remove(&self, auth_data: &AuthData, package: &str, can_remove: bool) -> Result<(), ApiError> {
+    pub(crate) async fn set_crate_can_remove(
+        &self,
+        auth_data: &AuthData,
+        package: &str,
+        can_remove: bool,
+    ) -> Result<(), ApiError> {
         self.db_transaction_write("set_crate_can_remove", |app| async move {
             let authentication = app.authenticate(auth_data).await?;
             app.check_can_manage_crate(&authentication, package).await?;
@@ -805,7 +846,7 @@ impl Application {
     }
 
     /// Gets the global statistics for the registry
-    pub async fn get_crates_stats(&self, auth_data: &AuthData) -> Result<GlobalStats, ApiError> {
+    pub(crate) async fn get_crates_stats(&self, auth_data: &AuthData) -> Result<GlobalStats, ApiError> {
         self.db_transaction_read(|app| async move {
             let _authentication = app.authenticate(auth_data).await?;
             app.database.get_crates_stats().await
@@ -814,7 +855,7 @@ impl Application {
     }
 
     /// Search for crates
-    pub async fn search_crates(
+    pub(crate) async fn search_crates(
         &self,
         auth_data: &AuthData,
         query: &str,
@@ -832,7 +873,7 @@ impl Application {
     }
 
     /// Checks the dependencies of a local crate
-    pub async fn check_crate_version_deps(
+    pub(crate) async fn check_crate_version_deps(
         &self,
         auth_data: &AuthData,
         package: &str,

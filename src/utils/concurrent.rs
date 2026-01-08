@@ -16,7 +16,7 @@ use futures::{FutureExt, Stream, StreamExt};
 /// This is similar to the `futures::future::join_all` function, except that instead of executing them all,
 /// we at most have n in concurrent execution.
 #[expect(clippy::missing_panics_doc)]
-pub async fn n_at_a_time<I, F, T, TEST>(futures: I, n: usize, must_stop: TEST) -> Vec<T>
+pub(crate) async fn n_at_a_time<I, F, T, TEST>(futures: I, n: usize, must_stop: TEST) -> Vec<T>
 where
     I: IntoIterator<Item = F>,
     F: Future<Output = T> + Send + Unpin + 'static,
@@ -59,7 +59,7 @@ where
 ///
 /// This is similar to the `futures::future::join_all` function, except that instead of executing them all,
 /// we at most have n in concurrent execution.
-pub async fn n_at_a_time_stream<S, F, T, TEST>(stream: S, n: usize, must_stop: TEST) -> Vec<T>
+pub(crate) async fn n_at_a_time_stream<S, F, T, TEST>(stream: S, n: usize, must_stop: TEST) -> Vec<T>
 where
     S: Stream<Item = F>,
     F: Future<Output = T> + Send + Unpin + 'static,
@@ -119,7 +119,7 @@ where
 }
 
 /// A future that may be there but never resolve if there is none
-pub struct MaybeOrNever<F> {
+pub(crate) struct MaybeOrNever<F> {
     /// The inner future
     inner: Option<F>,
     /// Whether the inner futurer is terminated
@@ -137,7 +137,7 @@ impl<F> Default for MaybeOrNever<F> {
 
 impl<F> MaybeOrNever<F> {
     /// Creates a new future
-    pub const fn new(inner: F) -> Self {
+    pub(crate) const fn new(inner: F) -> Self {
         Self {
             inner: Some(inner),
             is_terminated: false,
@@ -145,7 +145,7 @@ impl<F> MaybeOrNever<F> {
     }
 
     /// Gets whether there is no future inside
-    pub const fn is_never(&self) -> bool {
+    pub(crate) const fn is_never(&self) -> bool {
         self.inner.is_none()
     }
 }
@@ -157,7 +157,7 @@ impl<F: Future + Unpin> FusedFuture for MaybeOrNever<F> {
 }
 
 /// Transforms a future into a maybe missing one
-pub trait MaybeFutureExt: Sized {
+pub(crate) trait MaybeFutureExt: Sized {
     /// Transforms this future into a maybe missing one
     fn maybe(self) -> MaybeOrNever<Self>;
 }

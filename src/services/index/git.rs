@@ -18,13 +18,13 @@ use crate::utils::apierror::{ApiError, error_backend_failure, error_not_found, s
 use crate::utils::{FaillibleFuture, execute_at_location, execute_git};
 
 /// Manages the index on git
-pub struct GitIndex {
+pub(crate) struct GitIndex {
     inner: Mutex<GitIndexImpl>,
 }
 
 impl GitIndex {
     /// When the application is launched
-    pub async fn new(config: IndexConfig, expect_empty: bool) -> Result<Self, ApiError> {
+    pub(crate) async fn new(config: IndexConfig, expect_empty: bool) -> Result<Self, ApiError> {
         let inner = GitIndexImpl::new(config, expect_empty).await?;
         Ok(Self {
             inner: Mutex::new(inner),

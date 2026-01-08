@@ -24,7 +24,7 @@ use crate::utils::token::{check_hash, generate_token, hash_token};
 
 impl Database {
     /// Retrieves a user profile
-    pub async fn get_user_profile(&self, uid: i64) -> Result<RegistryUser, ApiError> {
+    pub(crate) async fn get_user_profile(&self, uid: i64) -> Result<RegistryUser, ApiError> {
         let maybe_row = sqlx::query_as!(
             RegistryUser,
             "SELECT id, isActive AS is_active, email, login, name, roles FROM RegistryUser WHERE id = $1",
@@ -36,7 +36,11 @@ impl Database {
     }
 
     /// Attempts to login using an OAuth code
-    pub async fn login_with_oauth_code(&self, configuration: &Configuration, code: &str) -> Result<RegistryUser, ApiError> {
+    pub(crate) async fn login_with_oauth_code(
+        &self,
+        configuration: &Configuration,
+        code: &str,
+    ) -> Result<RegistryUser, ApiError> {
         let client = reqwest::Client::new();
         // retrieve the token
         let response = client
@@ -128,7 +132,7 @@ impl Database {
     }
 
     /// Gets the known users
-    pub async fn get_users(&self) -> Result<Vec<RegistryUser>, ApiError> {
+    pub(crate) async fn get_users(&self) -> Result<Vec<RegistryUser>, ApiError> {
         let rows = sqlx::query_as!(
             RegistryUser,
             "SELECT id, isActive AS is_active, email, login, name, roles FROM RegistryUser ORDER BY login",
@@ -139,7 +143,7 @@ impl Database {
     }
 
     /// Updates the information of a user
-    pub async fn update_user(
+    pub(crate) async fn update_user(
         &self,
         principal_uid: i64,
         target: &RegistryUser,
@@ -188,7 +192,7 @@ impl Database {
     }
 
     /// Attempts to deactivate a user
-    pub async fn deactivate_user(&self, principal_uid: i64, target: &str) -> Result<(), ApiError> {
+    pub(crate) async fn deactivate_user(&self, principal_uid: i64, target: &str) -> Result<(), ApiError> {
         let target_uid = self.check_is_user(target).await?;
         if principal_uid == target_uid {
             // cannot deactivate self
@@ -201,7 +205,7 @@ impl Database {
     }
 
     /// Attempts to re-activate a user
-    pub async fn reactivate_user(&self, target: &str) -> Result<(), ApiError> {
+    pub(crate) async fn reactivate_user(&self, target: &str) -> Result<(), ApiError> {
         sqlx::query!("UPDATE RegistryUser SET isActive = TRUE WHERE email = $1", target)
             .execute(&mut *self.transaction.borrow().await)
             .await?;
@@ -209,7 +213,7 @@ impl Database {
     }
 
     /// Attempts to delete a user
-    pub async fn delete_user(&self, principal_uid: i64, target: &str) -> Result<(), ApiError> {
+    pub(crate) async fn delete_user(&self, principal_uid: i64, target: &str) -> Result<(), ApiError> {
         let target_uid = sqlx::query!("SELECT id FROM RegistryUser WHERE email = $1", target)
             .fetch_optional(&mut *self.transaction.borrow().await)
             .await?
@@ -231,7 +235,7 @@ impl Database {
     }
 
     /// Gets the tokens for a user
-    pub async fn get_tokens(&self, uid: i64) -> Result<Vec<RegistryUserToken>, ApiError> {
+    pub(crate) async fn get_tokens(&self, uid: i64) -> Result<Vec<RegistryUserToken>, ApiError> {
         let rows = sqlx::query!(
             "SELECT id, name, lastUsed AS last_used, canWrite AS can_write, canAdmin AS can_admin FROM RegistryUserToken WHERE user = $1 ORDER BY id",
             uid
@@ -251,7 +255,7 @@ impl Database {
     }
 
     /// Creates a token for the current user
-    pub async fn create_token(
+    pub(crate) async fn create_token(
         &self,
         uid: i64,
         name: &str,
@@ -284,7 +288,7 @@ impl Database {
     }
 
     /// Revoke a previous token
-    pub async fn revoke_token(&self, uid: i64, token_id: i64) -> Result<(), ApiError> {
+    pub(crate) async fn revoke_token(&self, uid: i64, token_id: i64) -> Result<(), ApiError> {
         sqlx::query!("DELETE FROM RegistryUserToken WHERE user = $1 AND id = $2", uid, token_id)
             .execute(&mut *self.transaction.borrow().await)
             .await?;
@@ -292,7 +296,12 @@ impl Database {
     }
 
     /// Checks an authentication request with a token
-    pub async fn check_token<F, FUT>(&self, login: &str, token_secret: &str, on_usage: &F) -> Result<Authentication, ApiError>
+    pub(crate) async fn check_token<F, FUT>(
+        &self,
+        login: &str,
+        token_secret: &str,
+        on_usage: &F,
+    ) -> Result<Authentication, ApiError>
     where
         F: Fn(TokenUsage) -> FUT + Sync,
         FUT: Future<Output = ()>,
@@ -377,7 +386,7 @@ impl Database {
     }
 
     /// Updates the last usage of a token
-    pub async fn update_token_last_usage(&self, event: &TokenUsage) -> Result<(), ApiError> {
+    pub(crate) async fn update_token_last_usage(&self, event: &TokenUsage) -> Result<(), ApiError> {
         if event.kind == TokenKind::User {
             sqlx::query!(
                 "UPDATE RegistryUserToken SET lastUsed = $2 WHERE id = $1",

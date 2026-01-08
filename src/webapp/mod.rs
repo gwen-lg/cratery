@@ -21,7 +21,7 @@ macro_rules! add {
 
 /// Gets the resources to serve for the web application
 #[must_use]
-pub fn get_resources() -> EmbeddedResources {
+pub(crate) fn get_resources() -> EmbeddedResources {
     let mut resources = EmbeddedResources::with_fallback("index.html");
     // HTML
     add!(resources, "index.html");

@@ -54,13 +54,13 @@ use crate::utils::axum::{ApiResult, response, response_error};
 use crate::utils::token::generate_token;
 
 /// The state of this application for axum
-pub struct AxumState {
+pub(crate) struct AxumState {
     /// The main application
-    pub application: Arc<Application>,
+    pub(crate) application: Arc<Application>,
     /// Key to access private cookies
-    pub cookie_key: Key,
+    pub(crate) cookie_key: Key,
     /// The static resources for the web app
-    pub webapp_resources: EmbeddedResources,
+    pub(crate) webapp_resources: EmbeddedResources,
 }
 
 impl AxumStateForCookies for AxumState {
@@ -100,19 +100,19 @@ impl AxumState {
 }
 
 #[derive(Deserialize)]
-pub struct PathInfoCrate {
+pub(crate) struct PathInfoCrate {
     package: String,
 }
 
 #[derive(Deserialize)]
-pub struct PathInfoCrateVersion {
+pub(crate) struct PathInfoCrateVersion {
     package: String,
     version: String,
 }
 
 /// Response for a GET on the root
 /// Redirect to the web app
-pub async fn get_root(State(state): State<Arc<AxumState>>) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
+pub(crate) async fn get_root(State(state): State<Arc<AxumState>>) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
     let target = format!("{}/webapp/index.html", state.application.configuration.web_public_uri);
     (
         StatusCode::FOUND,
@@ -124,7 +124,9 @@ pub async fn get_root(State(state): State<Arc<AxumState>>) -> (StatusCode, [(Hea
 }
 
 /// Gets the favicon
-pub async fn get_favicon(State(state): State<Arc<AxumState>>) -> (StatusCode, [(HeaderName, HeaderValue); 2], &'static [u8]) {
+pub(crate) async fn get_favicon(
+    State(state): State<Arc<AxumState>>,
+) -> (StatusCode, [(HeaderName, HeaderValue); 2], &'static [u8]) {
     let favicon = state.webapp_resources.get("favicon.png").unwrap();
     (
         StatusCode::OK,
@@ -164,7 +166,7 @@ fn get_auth_redirect(state: &AxumState) -> (StatusCode, [(HeaderName, HeaderValu
 }
 
 /// Gets the redirection for a crates shortcut
-pub async fn get_redirection_crate(
+pub(crate) async fn get_redirection_crate(
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
 ) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
     let target = format!("/webapp/crate.html?crate={package}");
@@ -181,7 +183,7 @@ pub async fn get_redirection_crate(
 }
 
 /// Gets the redirection for a crates shortcut
-pub async fn get_redirection_crate_version(
+pub(crate) async fn get_redirection_crate_version(
     Path(PathInfoCrateVersion { package, version }): Path<PathInfoCrateVersion>,
 ) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
     let target = format!("/webapp/crate.html?crate={package}&version={version}");
@@ -198,7 +200,7 @@ pub async fn get_redirection_crate_version(
 }
 
 /// Gets the favicon
-pub async fn get_webapp_resource(
+pub(crate) async fn get_webapp_resource(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     request: Request<Body>,
@@ -249,7 +251,7 @@ fn wrap_resource_with_header(resource: WebappResource) -> (StatusCode, [(HeaderN
 }
 
 /// Redirects to the login page
-pub async fn webapp_me(State(state): State<Arc<AxumState>>) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
+pub(crate) async fn webapp_me(State(state): State<Arc<AxumState>>) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
     let target = format!("{}/webapp/index.html", state.application.configuration.web_public_uri);
     (
         StatusCode::FOUND,
@@ -261,7 +263,7 @@ pub async fn webapp_me(State(state): State<Arc<AxumState>>) -> (StatusCode, [(He
 }
 
 /// Gets a file from the documentation
-pub async fn get_docs_resource(
+pub(crate) async fn get_docs_resource(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     request: Request<Body>,
@@ -350,7 +352,7 @@ fn get_content_type(name: &str) -> &'static str {
 }
 
 /// Get server configuration
-pub async fn api_v1_get_registry_information(
+pub(crate) async fn api_v1_get_registry_information(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
 ) -> ApiResult<RegistryInformation> {
@@ -358,12 +360,15 @@ pub async fn api_v1_get_registry_information(
 }
 
 /// Get the current user
-pub async fn api_v1_get_current_user(auth_data: AuthData, State(state): State<Arc<AxumState>>) -> ApiResult<RegistryUser> {
+pub(crate) async fn api_v1_get_current_user(
+    auth_data: AuthData,
+    State(state): State<Arc<AxumState>>,
+) -> ApiResult<RegistryUser> {
     response(state.application.get_current_user(&auth_data).await)
 }
 
 /// Attempts to login using an OAuth code
-pub async fn api_v1_login_with_oauth_code(
+pub(crate) async fn api_v1_login_with_oauth_code(
     mut auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     body: Bytes,
@@ -379,7 +384,7 @@ pub async fn api_v1_login_with_oauth_code(
 }
 
 /// Logout a user
-pub async fn api_v1_logout(mut auth_data: AuthData) -> (StatusCode, [(HeaderName, HeaderValue); 1]) {
+pub(crate) async fn api_v1_logout(mut auth_data: AuthData) -> (StatusCode, [(HeaderName, HeaderValue); 1]) {
     let cookie = auth_data.create_expired_id_cookie();
     (
         StatusCode::OK,
@@ -388,7 +393,7 @@ pub async fn api_v1_logout(mut auth_data: AuthData) -> (StatusCode, [(HeaderName
 }
 
 /// Gets the tokens for a user
-pub async fn api_v1_get_user_tokens(
+pub(crate) async fn api_v1_get_user_tokens(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
 ) -> ApiResult<Vec<RegistryUserToken>> {
@@ -396,7 +401,7 @@ pub async fn api_v1_get_user_tokens(
 }
 
 #[derive(Deserialize)]
-pub struct CreateTokenQuery {
+pub(crate) struct CreateTokenQuery {
     #[serde(rename = "canWrite")]
     can_write: bool,
     #[serde(rename = "canAdmin")]
@@ -404,7 +409,7 @@ pub struct CreateTokenQuery {
 }
 
 /// Creates a token for the current user
-pub async fn api_v1_create_user_token(
+pub(crate) async fn api_v1_create_user_token(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Query(CreateTokenQuery { can_write, can_admin }): Query<CreateTokenQuery>,
@@ -414,7 +419,7 @@ pub async fn api_v1_create_user_token(
 }
 
 /// Revoke a previous token
-pub async fn api_v1_revoke_user_token(
+pub(crate) async fn api_v1_revoke_user_token(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(token_id): Path<i64>,
@@ -423,7 +428,7 @@ pub async fn api_v1_revoke_user_token(
 }
 
 /// Gets the global tokens for the registry, usually for CI purposes
-pub async fn api_v1_get_global_tokens(
+pub(crate) async fn api_v1_get_global_tokens(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
 ) -> ApiResult<Vec<RegistryUserToken>> {
@@ -431,7 +436,7 @@ pub async fn api_v1_get_global_tokens(
 }
 
 /// Creates a global token for the registry
-pub async fn api_v1_create_global_token(
+pub(crate) async fn api_v1_create_global_token(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     name: String,
@@ -440,7 +445,7 @@ pub async fn api_v1_create_global_token(
 }
 
 /// Revokes a global token for the registry
-pub async fn api_v1_revoke_global_token(
+pub(crate) async fn api_v1_revoke_global_token(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(token_id): Path<i64>,
@@ -449,12 +454,15 @@ pub async fn api_v1_revoke_global_token(
 }
 
 /// Gets the documentation jobs
-pub async fn api_v1_get_doc_gen_jobs(auth_data: AuthData, State(state): State<Arc<AxumState>>) -> ApiResult<Vec<DocGenJob>> {
+pub(crate) async fn api_v1_get_doc_gen_jobs(
+    auth_data: AuthData,
+    State(state): State<Arc<AxumState>>,
+) -> ApiResult<Vec<DocGenJob>> {
     response(state.application.get_doc_gen_jobs(&auth_data).await)
 }
 
 /// Gets the log for a documentation generation job
-pub async fn api_v1_get_doc_gen_job_log(
+pub(crate) async fn api_v1_get_doc_gen_job_log(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(job_id): Path<i64>,
@@ -463,7 +471,7 @@ pub async fn api_v1_get_doc_gen_job_log(
 }
 
 /// Gets a stream of updates for documentation generation jobs
-pub async fn api_v1_get_doc_gen_job_updates(
+pub(crate) async fn api_v1_get_doc_gen_job_updates(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
 ) -> Result<Response, (StatusCode, Json<ApiError>)> {
@@ -476,12 +484,15 @@ pub async fn api_v1_get_doc_gen_job_updates(
 }
 
 /// Gets the connected worker nodes
-pub async fn api_v1_get_workers(auth_data: AuthData, State(state): State<Arc<AxumState>>) -> ApiResult<Vec<WorkerPublicData>> {
+pub(crate) async fn api_v1_get_workers(
+    auth_data: AuthData,
+    State(state): State<Arc<AxumState>>,
+) -> ApiResult<Vec<WorkerPublicData>> {
     response(state.application.get_workers(&auth_data).await)
 }
 
 /// Adds a listener to workers updates
-pub async fn api_v1_get_workers_updates(
+pub(crate) async fn api_v1_get_workers_updates(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
 ) -> Result<Response, (StatusCode, Json<ApiError>)> {
@@ -494,7 +505,7 @@ pub async fn api_v1_get_workers_updates(
 }
 
 /// Endpoint for worker to connect to this host
-pub async fn api_v1_worker_connect(
+pub(crate) async fn api_v1_worker_connect(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     request: Request<Body>,
@@ -637,12 +648,12 @@ async fn worker_connect_handle_inner(web_socket: WebSocket, state: Arc<AxumState
 }
 
 /// Gets the known users
-pub async fn api_v1_get_users(auth_data: AuthData, State(state): State<Arc<AxumState>>) -> ApiResult<Vec<RegistryUser>> {
+pub(crate) async fn api_v1_get_users(auth_data: AuthData, State(state): State<Arc<AxumState>>) -> ApiResult<Vec<RegistryUser>> {
     response(state.application.get_users(&auth_data).await)
 }
 
 /// Updates the information of a user
-pub async fn api_v1_update_user(
+pub(crate) async fn api_v1_update_user(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(Base64(email)): Path<Base64>,
@@ -658,7 +669,7 @@ pub async fn api_v1_update_user(
 }
 
 /// Attempts to delete a user
-pub async fn api_v1_delete_user(
+pub(crate) async fn api_v1_delete_user(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(Base64(email)): Path<Base64>,
@@ -667,7 +678,7 @@ pub async fn api_v1_delete_user(
 }
 
 /// Attempts to deactivate a user
-pub async fn api_v1_deactivate_user(
+pub(crate) async fn api_v1_deactivate_user(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(Base64(email)): Path<Base64>,
@@ -676,7 +687,7 @@ pub async fn api_v1_deactivate_user(
 }
 
 /// Attempts to deactivate a user
-pub async fn api_v1_reactivate_user(
+pub(crate) async fn api_v1_reactivate_user(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(Base64(email)): Path<Base64>,
@@ -685,13 +696,13 @@ pub async fn api_v1_reactivate_user(
 }
 
 #[derive(Deserialize)]
-pub struct SearchForm {
+pub(crate) struct SearchForm {
     q: String,
     per_page: Option<usize>,
     deprecated: Option<bool>,
 }
 
-pub async fn api_v1_cargo_search(
+pub(crate) async fn api_v1_cargo_search(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     form: Query<SearchForm>,
@@ -705,12 +716,15 @@ pub async fn api_v1_cargo_search(
 }
 
 /// Gets the global statistics for the registry
-pub async fn api_v1_get_crates_stats(auth_data: AuthData, State(state): State<Arc<AxumState>>) -> ApiResult<GlobalStats> {
+pub(crate) async fn api_v1_get_crates_stats(
+    auth_data: AuthData,
+    State(state): State<Arc<AxumState>>,
+) -> ApiResult<GlobalStats> {
     response(state.application.get_crates_stats(&auth_data).await)
 }
 
 /// Gets the packages that need documentation generation
-pub async fn api_v1_get_crates_undocumented(
+pub(crate) async fn api_v1_get_crates_undocumented(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
 ) -> ApiResult<Vec<DocGenJobSpec>> {
@@ -718,14 +732,14 @@ pub async fn api_v1_get_crates_undocumented(
 }
 
 /// Gets all the packages that are outdated while also being the latest version
-pub async fn api_v1_get_crates_outdated_heads(
+pub(crate) async fn api_v1_get_crates_outdated_heads(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
 ) -> ApiResult<Vec<CrateVersion>> {
     response(state.application.get_crates_outdated_heads(&auth_data).await)
 }
 
-pub async fn api_v1_cargo_publish_crate_version(
+pub(crate) async fn api_v1_cargo_publish_crate_version(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     body: Bytes,
@@ -733,7 +747,7 @@ pub async fn api_v1_cargo_publish_crate_version(
     response(state.application.publish_crate_version(&auth_data, &body).await)
 }
 
-pub async fn api_v1_get_crate_info(
+pub(crate) async fn api_v1_get_crate_info(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -741,7 +755,7 @@ pub async fn api_v1_get_crate_info(
     response(state.application.get_crate_info(&auth_data, &package).await)
 }
 
-pub async fn api_v1_get_crate_last_readme(
+pub(crate) async fn api_v1_get_crate_last_readme(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -759,7 +773,7 @@ pub async fn api_v1_get_crate_last_readme(
     ))
 }
 
-pub async fn api_v1_get_crate_readme(
+pub(crate) async fn api_v1_get_crate_readme(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrateVersion { package, version }): Path<PathInfoCrateVersion>,
@@ -777,7 +791,7 @@ pub async fn api_v1_get_crate_readme(
     ))
 }
 
-pub async fn api_v1_download_crate(
+pub(crate) async fn api_v1_download_crate(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrateVersion { package, version }): Path<PathInfoCrateVersion>,
@@ -798,7 +812,7 @@ pub async fn api_v1_download_crate(
     }
 }
 
-pub async fn api_v1_remove_crate_version(
+pub(crate) async fn api_v1_remove_crate_version(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrateVersion { package, version }): Path<PathInfoCrateVersion>,
@@ -806,7 +820,7 @@ pub async fn api_v1_remove_crate_version(
     response(state.application.remove_crate_version(&auth_data, &package, &version).await)
 }
 
-pub async fn api_v1_cargo_yank(
+pub(crate) async fn api_v1_cargo_yank(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrateVersion { package, version }): Path<PathInfoCrateVersion>,
@@ -814,7 +828,7 @@ pub async fn api_v1_cargo_yank(
     response(state.application.yank_crate_version(&auth_data, &package, &version).await)
 }
 
-pub async fn api_v1_cargo_unyank(
+pub(crate) async fn api_v1_cargo_unyank(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrateVersion { package, version }): Path<PathInfoCrateVersion>,
@@ -822,7 +836,7 @@ pub async fn api_v1_cargo_unyank(
     response(state.application.unyank_crate_version(&auth_data, &package, &version).await)
 }
 
-pub async fn api_v1_regen_crate_version_doc(
+pub(crate) async fn api_v1_regen_crate_version_doc(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrateVersion { package, version }): Path<PathInfoCrateVersion>,
@@ -835,7 +849,7 @@ pub async fn api_v1_regen_crate_version_doc(
     )
 }
 
-pub async fn api_v1_check_crate_version(
+pub(crate) async fn api_v1_check_crate_version(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrateVersion { package, version }): Path<PathInfoCrateVersion>,
@@ -849,7 +863,7 @@ pub async fn api_v1_check_crate_version(
 }
 
 /// Gets the download statistics for a crate
-pub async fn api_v1_get_crate_dl_stats(
+pub(crate) async fn api_v1_get_crate_dl_stats(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -857,7 +871,7 @@ pub async fn api_v1_get_crate_dl_stats(
     response(state.application.get_crate_dl_stats(&auth_data, &package).await)
 }
 
-pub async fn api_v1_cargo_get_crate_owners(
+pub(crate) async fn api_v1_cargo_get_crate_owners(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -865,7 +879,7 @@ pub async fn api_v1_cargo_get_crate_owners(
     response(state.application.get_crate_owners(&auth_data, &package).await)
 }
 
-pub async fn api_v1_cargo_add_crate_owners(
+pub(crate) async fn api_v1_cargo_add_crate_owners(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -874,7 +888,7 @@ pub async fn api_v1_cargo_add_crate_owners(
     response(state.application.add_crate_owners(&auth_data, &package, &input.users).await)
 }
 
-pub async fn api_v1_cargo_remove_crate_owners(
+pub(crate) async fn api_v1_cargo_remove_crate_owners(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -889,7 +903,7 @@ pub async fn api_v1_cargo_remove_crate_owners(
 }
 
 /// Gets the targets for a crate
-pub async fn api_v1_get_crate_targets(
+pub(crate) async fn api_v1_get_crate_targets(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -898,7 +912,7 @@ pub async fn api_v1_get_crate_targets(
 }
 
 /// Sets the targets for a crate
-pub async fn api_v1_set_crate_targets(
+pub(crate) async fn api_v1_set_crate_targets(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -908,7 +922,7 @@ pub async fn api_v1_set_crate_targets(
 }
 
 /// Gets the required capabilities for a crate
-pub async fn api_v1_get_crate_required_capabilities(
+pub(crate) async fn api_v1_get_crate_required_capabilities(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -917,7 +931,7 @@ pub async fn api_v1_get_crate_required_capabilities(
 }
 
 /// Sets the required capabilities for a crate
-pub async fn api_v1_set_crate_required_capabilities(
+pub(crate) async fn api_v1_set_crate_required_capabilities(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -932,7 +946,7 @@ pub async fn api_v1_set_crate_required_capabilities(
 }
 
 /// Sets the deprecation status on a crate
-pub async fn api_v1_set_crate_deprecation(
+pub(crate) async fn api_v1_set_crate_deprecation(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -942,7 +956,7 @@ pub async fn api_v1_set_crate_deprecation(
 }
 
 /// Sets whether a crate can have versions completely removed
-pub async fn api_v1_set_crate_can_remove(
+pub(crate) async fn api_v1_set_crate_can_remove(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Path(PathInfoCrate { package }): Path<PathInfoCrate>,
@@ -951,7 +965,7 @@ pub async fn api_v1_set_crate_can_remove(
     response(state.application.set_crate_can_remove(&auth_data, &package, input.0).await)
 }
 
-pub async fn index_serve_inner(
+pub(crate) async fn index_serve_inner(
     index: &(dyn Index + Send + Sync),
     path: &str,
 ) -> Result<
@@ -992,7 +1006,7 @@ fn index_serve_map_err(e: ApiError, domain: &str) -> (StatusCode, [(HeaderName, 
     )
 }
 
-pub async fn index_serve_check_auth(
+pub(crate) async fn index_serve_check_auth(
     application: &Application,
     auth_data: &AuthData,
 ) -> Result<(), (StatusCode, [(HeaderName, HeaderValue); 2], Json<ApiError>)> {
@@ -1006,7 +1020,7 @@ pub async fn index_serve_check_auth(
     Ok(())
 }
 
-pub async fn index_serve(
+pub(crate) async fn index_serve(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     request: Request<Body>,
@@ -1033,7 +1047,7 @@ pub async fn index_serve(
 }
 
 #[expect(clippy::implicit_hasher)]
-pub async fn index_serve_info_refs(
+pub(crate) async fn index_serve_info_refs(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     Query(query): Query<HashMap<String, String>>,
@@ -1069,7 +1083,7 @@ pub async fn index_serve_info_refs(
     }
 }
 
-pub async fn index_serve_git_upload_pack(
+pub(crate) async fn index_serve_git_upload_pack(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     body: Bytes,
@@ -1103,7 +1117,7 @@ pub async fn index_serve_git_upload_pack(
 /// # Errors
 ///
 /// Always return the `Ok` variant, but use `Result` for possible future usage.
-pub async fn get_version() -> ApiResult<AppVersion> {
+pub(crate) async fn get_version() -> ApiResult<AppVersion> {
     response(Ok(AppVersion {
         commit: crate::GIT_HASH.to_string(),
         tag: crate::GIT_TAG.to_string(),

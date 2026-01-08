@@ -21,9 +21,9 @@ use crate::utils::apierror::ApiError;
 
 /// An authentication token
 #[derive(Debug, Clone)]
-pub struct Token {
-    pub id: String,
-    pub secret: String,
+pub(crate) struct Token {
+    pub(crate) id: String,
+    pub(crate) secret: String,
 }
 
 impl Token {
@@ -53,7 +53,7 @@ impl Token {
 }
 
 /// Trait for an axum state that is able to provide a key for cookies
-pub trait AxumStateForCookies {
+pub(crate) trait AxumStateForCookies {
     /// Gets the domain to use for cookies
     fn get_domain(&self) -> Cow<'static, str> {
         Cow::Borrowed("localhost")
@@ -69,7 +69,7 @@ pub trait AxumStateForCookies {
 }
 
 /// Authentication data for a request
-pub struct AuthData {
+pub(crate) struct AuthData {
     /// The domain to use for cookies
     cookie_domain: Cow<'static, str>,
     /// The name for the identifying cookie
@@ -77,9 +77,9 @@ pub struct AuthData {
     /// The keys for cookies
     cookie_key: Key,
     /// The cookie manager
-    pub cookie_jar: CookieJar,
+    pub(crate) cookie_jar: CookieJar,
     /// The authentication token, if any
-    pub token: Option<Token>,
+    pub(crate) token: Option<Token>,
 }
 
 impl Default for AuthData {
@@ -158,7 +158,7 @@ impl AuthData {
     }
 
     /// Creates a cookie to be returned on the HTTP response
-    pub fn create_cookie(&mut self, name: &str, value: &str, is_private: bool) -> Cookie<'static> {
+    pub(crate) fn create_cookie(&mut self, name: &str, value: &str, is_private: bool) -> Cookie<'static> {
         let cookie = Self::build_cookie(&self.cookie_domain, Cow::Borrowed(name), Cow::Borrowed(value), false);
         if is_private {
             self.make_private_cookie(name, cookie)
@@ -168,7 +168,7 @@ impl AuthData {
     }
 
     /// Creates an expired cookie to be return on the HTTP response to unset it
-    pub fn create_expired_cookie(&mut self, name: &str, is_private: bool) -> Cookie<'static> {
+    pub(crate) fn create_expired_cookie(&mut self, name: &str, is_private: bool) -> Cookie<'static> {
         let cookie = Self::build_cookie(&self.cookie_domain, Cow::Borrowed(name), Cow::Borrowed(""), true);
         if is_private {
             self.make_private_cookie(name, cookie)
@@ -182,12 +182,12 @@ impl AuthData {
     /// # Panics
     ///
     /// Panic when the value cannot be serialized to JSON
-    pub fn create_id_cookie(&mut self, value: &Authentication) -> Cookie<'static> {
+    pub(crate) fn create_id_cookie(&mut self, value: &Authentication) -> Cookie<'static> {
         self.create_cookie(&self.cookie_id_name.clone(), &serde_json::to_string(value).unwrap(), true)
     }
 
     /// Creates an expired identification cookie to be returned on the HTTP response to unset it
-    pub fn create_expired_id_cookie(&mut self) -> Cookie<'static> {
+    pub(crate) fn create_expired_id_cookie(&mut self) -> Cookie<'static> {
         self.create_expired_cookie(&self.cookie_id_name.clone(), true)
     }
 
@@ -196,7 +196,7 @@ impl AuthData {
     /// # Errors
     ///
     /// Propagates the error from the `check_token` callback.
-    pub fn try_authenticate_cookie(&self) -> Result<Option<Authentication>, ApiError> {
+    pub(crate) fn try_authenticate_cookie(&self) -> Result<Option<Authentication>, ApiError> {
         // try the cookie
         Ok(self
             .cookie_jar

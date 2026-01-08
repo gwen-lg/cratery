@@ -33,7 +33,7 @@ use crate::utils::db::RwSqlitePool;
 use crate::utils::{FaillibleFuture, stale_instant};
 
 /// Creates a worker for the continuous check of dependencies for head crates
-pub fn create_deps_worker(
+pub(crate) fn create_deps_worker(
     configuration: Arc<Configuration>,
     service_deps_checker: Arc<dyn DepsChecker + Send + Sync>,
     service_email_sender: Arc<dyn EmailSender + Send + Sync>,
@@ -219,7 +219,7 @@ async fn deps_worker_job_on_crate_version(
 }
 
 /// Service to check the dependencies of a crate
-pub trait DepsChecker {
+pub(crate) trait DepsChecker {
     /// Ensures that a local cache for crates.io exists
     fn precache_crate_io(&self) -> FaillibleFuture<'_, ()>;
 
@@ -233,7 +233,7 @@ pub trait DepsChecker {
 }
 
 /// Gets the dependencies checker service
-pub fn get_service(
+pub(crate) fn get_service(
     configuration: Arc<Configuration>,
     service_index: Arc<dyn Index + Send + Sync>,
     service_rustsec: Arc<dyn RustSecChecker + Send + Sync>,

@@ -20,24 +20,24 @@ use crate::routes::AxumState;
 use crate::services::ServiceProvider;
 use crate::utils::sigterm::waiting_sigterm;
 
-pub mod application;
-pub mod migrations;
-pub mod model;
-pub mod routes;
-pub mod services;
-pub mod utils;
-pub mod webapp;
-pub mod worker;
+pub(crate) mod application;
+pub(crate) mod migrations;
+pub(crate) mod model;
+pub(crate) mod routes;
+pub(crate) mod services;
+pub(crate) mod utils;
+pub(crate) mod webapp;
+pub(crate) mod worker;
 
 #[cfg(test)]
 mod tests;
 
 /// The name of this program
-pub const CRATE_NAME: &str = env!("CARGO_PKG_NAME");
+pub(crate) const CRATE_NAME: &str = env!("CARGO_PKG_NAME");
 /// The commit that was used to build the application
-pub const GIT_HASH: &str = env!("GIT_HASH");
+pub(crate) const GIT_HASH: &str = env!("GIT_HASH");
 /// The git tag that was used to build the application
-pub const GIT_TAG: &str = env!("GIT_TAG");
+pub(crate) const GIT_TAG: &str = env!("GIT_TAG");
 
 /// Main payload for serving the application
 #[expect(clippy::too_many_lines)]

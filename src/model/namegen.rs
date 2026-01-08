@@ -8,7 +8,7 @@ use rand::Rng;
 
 /// Generate a new name
 #[must_use]
-pub fn generate_name() -> String {
+pub(crate) fn generate_name() -> String {
     let adjective = ADJECTIVES[rand::rng().random_range(0..ADJECTIVES.len())];
     let noun = NOUNS[rand::rng().random_range(0..NOUNS.len())];
     format!("{adjective}_{noun}")

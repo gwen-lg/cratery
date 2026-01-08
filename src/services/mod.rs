@@ -11,17 +11,17 @@ use crate::model::worker::WorkersManager;
 use crate::utils::apierror::ApiError;
 use crate::utils::db::RwSqlitePool;
 
-pub mod database;
-pub mod deps;
-pub mod docs;
-pub mod emails;
-pub mod index;
-pub mod rustsec;
-pub mod storage;
+pub(crate) mod database;
+pub(crate) mod deps;
+pub(crate) mod docs;
+pub(crate) mod emails;
+pub(crate) mod index;
+pub(crate) mod rustsec;
+pub(crate) mod storage;
 
 /// Factory responsible for building services
 #[expect(async_fn_in_trait)]
-pub trait ServiceProvider {
+pub(crate) trait ServiceProvider {
     /// Gets the configuration
     async fn get_configuration() -> Result<Configuration, ApiError>;
 
@@ -54,7 +54,7 @@ pub trait ServiceProvider {
 }
 
 /// Provides the standard implementations for services
-pub struct StandardServiceProvider;
+pub(crate) struct StandardServiceProvider;
 
 impl ServiceProvider for StandardServiceProvider {
     /// Gets the configuration

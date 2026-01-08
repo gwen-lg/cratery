@@ -166,7 +166,7 @@ async fn migrate_db(transaction: AppTransaction, migrations: &[Migration<'_>]) -
 }
 
 /// Migrate to the last version
-pub async fn migrate_to_last(transaction: AppTransaction) -> Result<i32, ApiError> {
+pub(crate) async fn migrate_to_last(transaction: AppTransaction) -> Result<i32, ApiError> {
     migrate_db(transaction, MIGRATIONS).await?;
     Ok(0)
 }

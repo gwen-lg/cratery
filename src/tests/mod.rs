@@ -17,14 +17,14 @@ use crate::utils::apierror::ApiError;
 use crate::utils::axum::auth::{AuthData, Token};
 use crate::utils::token::{generate_token, hash_token};
 
-pub mod mocks;
-pub mod security;
+pub(crate) mod mocks;
+pub(crate) mod security;
 
-pub const ADMIN_UID: i64 = 1;
-pub const ADMIN_NAME: &str = "admin";
+pub(crate) const ADMIN_UID: i64 = 1;
+pub(crate) const ADMIN_NAME: &str = "admin";
 
 /// Wrapper for async tests
-pub fn async_test<F, FUT>(payload: F) -> Result<(), ApiError>
+pub(crate) fn async_test<F, FUT>(payload: F) -> Result<(), ApiError>
 where
     F: FnOnce(Arc<Application>, AuthData) -> FUT,
     FUT: Future<Output = Result<(), ApiError>>,
@@ -47,19 +47,19 @@ where
     Ok(())
 }
 
-pub async fn setup_create_admin(application: &Application, name: &str) -> Result<(), ApiError> {
+pub(crate) async fn setup_create_admin(application: &Application, name: &str) -> Result<(), ApiError> {
     setup_create_user(application, name, ROLE_ADMIN).await
 }
 
-pub async fn setup_create_user(application: &Application, name: &str, roles: &str) -> Result<(), ApiError> {
+pub(crate) async fn setup_create_user(application: &Application, name: &str, roles: &str) -> Result<(), ApiError> {
     setup_create_user_base(application, name, true, roles).await
 }
 
-pub async fn setup_create_user_inactive(application: &Application, name: &str, roles: &str) -> Result<(), ApiError> {
+pub(crate) async fn setup_create_user_inactive(application: &Application, name: &str, roles: &str) -> Result<(), ApiError> {
     setup_create_user_base(application, name, false, roles).await
 }
 
-pub async fn setup_create_user_base(
+pub(crate) async fn setup_create_user_base(
     application: &Application,
     name: &str,
     is_active: bool,
@@ -79,7 +79,7 @@ pub async fn setup_create_user_base(
     Ok(())
 }
 
-pub async fn setup_create_token(
+pub(crate) async fn setup_create_token(
     application: &Application,
     uid: i64,
     can_write: bool,

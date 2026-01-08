@@ -17,18 +17,18 @@ use http_body::Frame;
 use serde::Serialize;
 
 /// A Server-Sent Event
-pub struct Event<T> {
+pub(crate) struct Event<T> {
     /// The event type, to be serialized in the `event` field
-    pub event_type: Option<String>,
+    pub(crate) event_type: Option<String>,
     /// The event unique id, if any
-    pub id: Option<String>,
+    pub(crate) id: Option<String>,
     /// The payload
-    pub data: T,
+    pub(crate) data: T,
 }
 
 impl<T> Event<T> {
     /// Produces an event from a payload
-    pub const fn from_data(data: T) -> Self {
+    pub(crate) const fn from_data(data: T) -> Self {
         Self {
             event_type: None,
             id: None,
@@ -51,7 +51,7 @@ impl<T: Serialize> Display for Event<T> {
 }
 
 /// A stream of Server-Sent Events to be sent by axum
-pub struct ServerSentEventStream<S>(S);
+pub(crate) struct ServerSentEventStream<S>(S);
 
 impl<S, T> ServerSentEventStream<S>
 where
@@ -59,7 +59,7 @@ where
     T: Serialize + Send + Unpin,
 {
     /// Encapsulate the original stream
-    pub const fn new(stream: S) -> Self {
+    pub(crate) const fn new(stream: S) -> Self {
         Self(stream)
     }
 }

@@ -19,7 +19,7 @@ use serde::de::Visitor;
 
 /// The client for the request, if any
 #[derive(Debug, Clone)]
-pub struct ClientIp(pub Option<IpAddr>);
+pub(crate) struct ClientIp(pub(crate) Option<IpAddr>);
 
 impl<S> FromRequestParts<S> for ClientIp
 where
@@ -52,7 +52,7 @@ impl fmt::Display for ClientIp {
 
 /// A matched argument encoded in base64
 #[derive(Debug, Clone, Default)]
-pub struct Base64(pub String);
+pub(crate) struct Base64(pub(crate) String);
 
 impl Deref for Base64 {
     type Target = str;
@@ -113,7 +113,7 @@ impl<'de> Visitor<'de> for Base64Visitor {
 
 /// Cookies on a request
 #[derive(Debug, Clone)]
-pub struct Cookies(pub CookieJar);
+pub(crate) struct Cookies(pub(crate) CookieJar);
 
 impl<S> FromRequestParts<S> for Cookies
 where

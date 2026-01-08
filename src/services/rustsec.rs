@@ -22,14 +22,14 @@ use crate::utils::concurrent::n_at_a_time_stream;
 use crate::utils::{FaillibleFuture, stale_instant};
 
 /// Service to use the [RustSec](https://github.com/rustsec) data about crates
-pub trait RustSecChecker {
+pub(crate) trait RustSecChecker {
     /// Gets the advisories against a crate
     fn check_crate<'a>(&'a self, package: &'a str, version: &'a Version) -> FaillibleFuture<'a, Vec<SimpleAdvisory>>;
 }
 
 /// Gets the rustsec service
 #[must_use]
-pub fn get_service(config: &Configuration) -> Arc<dyn RustSecChecker + Send + Sync> {
+pub(crate) fn get_service(config: &Configuration) -> Arc<dyn RustSecChecker + Send + Sync> {
     Arc::new(RustSecCheckerImpl {
         data: Mutex::new(RustSecData::new(config.data_dir.clone(), config.deps_stale_registry)),
     })

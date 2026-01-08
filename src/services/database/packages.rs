@@ -28,7 +28,7 @@ use crate::utils::comma_sep_to_vec;
 
 impl Database {
     /// Search for crates
-    pub async fn search_crates(
+    pub(crate) async fn search_crates(
         &self,
         query: &str,
         per_page: Option<usize>,
@@ -74,7 +74,7 @@ impl Database {
     }
 
     /// Gets whether the database does not contain any package at all
-    pub async fn get_is_empty(&self) -> Result<bool, ApiError> {
+    pub(crate) async fn get_is_empty(&self) -> Result<bool, ApiError> {
         Ok(sqlx::query!("SELECT id FROM PackageVersion LIMIT 1")
             .fetch_optional(&mut *self.transaction.borrow().await)
             .await?
@@ -82,7 +82,7 @@ impl Database {
     }
 
     /// Gets the last version number for a package
-    pub async fn get_crate_last_version(&self, package: &str) -> Result<String, ApiError> {
+    pub(crate) async fn get_crate_last_version(&self, package: &str) -> Result<String, ApiError> {
         let row = sqlx::query!(
             "SELECT version, description FROM PackageVersion WHERE package = $1 AND yanked = FALSE ORDER BY id DESC LIMIT 1",
             package
@@ -94,7 +94,7 @@ impl Database {
     }
 
     /// Gets all the data about a crate
-    pub async fn get_crate_info(
+    pub(crate) async fn get_crate_info(
         &self,
         package: &str,
         versions_in_index: Vec<IndexCrateMetadata>,
@@ -171,7 +171,11 @@ impl Database {
     }
 
     /// Publish a crate
-    pub async fn publish_crate_version(&self, uid: i64, package: &CrateUploadData) -> Result<CrateUploadResult, ApiError> {
+    pub(crate) async fn publish_crate_version(
+        &self,
+        uid: i64,
+        package: &CrateUploadData,
+    ) -> Result<CrateUploadResult, ApiError> {
         let warnings = package.metadata.validate()?;
         let lowercase = package.metadata.name.to_ascii_lowercase();
         let row = sqlx::query!(
@@ -239,7 +243,7 @@ impl Database {
     }
 
     /// Completely removes a version from the registry
-    pub async fn remove_crate_version(&self, package: &str, version: &str) -> Result<(), ApiError> {
+    pub(crate) async fn remove_crate_version(&self, package: &str, version: &str) -> Result<(), ApiError> {
         // check whether this is allowed
         let can_remove = sqlx::query!(
             "SELECT canRemove AS can_remove FROM Package WHERE lowercase = $1 LIMIT 1",
@@ -287,7 +291,7 @@ impl Database {
     }
 
     /// Yank a crate version
-    pub async fn yank_crate_version(&self, package: &str, version: &str) -> Result<YesNoResult, ApiError> {
+    pub(crate) async fn yank_crate_version(&self, package: &str, version: &str) -> Result<YesNoResult, ApiError> {
         let row = sqlx::query!(
             "SELECT yanked FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
             package,
@@ -321,7 +325,7 @@ impl Database {
     }
 
     /// Unyank a crate version
-    pub async fn unyank_crate_version(&self, package: &str, version: &str) -> Result<YesNoResult, ApiError> {
+    pub(crate) async fn unyank_crate_version(&self, package: &str, version: &str) -> Result<YesNoResult, ApiError> {
         let row = sqlx::query!(
             "SELECT yanked FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
             package,
@@ -355,7 +359,7 @@ impl Database {
     }
 
     /// Gets the packages that need documentation generation
-    pub async fn get_undocumented_crates(&self, default_target: &str) -> Result<Vec<DocGenJobSpec>, ApiError> {
+    pub(crate) async fn get_undocumented_crates(&self, default_target: &str) -> Result<Vec<DocGenJobSpec>, ApiError> {
         struct PackageData {
             targets: Vec<CrateInfoTarget>,
             capabilities: Vec<String>,
@@ -443,7 +447,7 @@ impl Database {
     }
 
     /// Sets a package as having documentation
-    pub async fn set_crate_documentation(
+    pub(crate) async fn set_crate_documentation(
         &self,
         package: &str,
         version: &str,
@@ -480,7 +484,7 @@ impl Database {
     }
 
     /// Force the re-generation for the documentation of a package
-    pub async fn regen_crate_version_doc(
+    pub(crate) async fn regen_crate_version_doc(
         &self,
         package: &str,
         version: &str,
@@ -522,7 +526,7 @@ impl Database {
 
     /// Gets the packages that need to have their dependencies analyzed
     /// Those are the latest version of each crate
-    pub async fn get_unanalyzed_crates(&self, deps_stale_analysis: i64) -> Result<Vec<DepsAnalysisJobSpec>, ApiError> {
+    pub(crate) async fn get_unanalyzed_crates(&self, deps_stale_analysis: i64) -> Result<Vec<DepsAnalysisJobSpec>, ApiError> {
         let now = Local::now().naive_local();
         let from = now - Duration::minutes(deps_stale_analysis);
         let heads = self.get_crates_version_heads().await?;
@@ -539,7 +543,7 @@ impl Database {
     }
 
     /// Gets all the packages that are outdated while also being the latest version
-    pub async fn get_crates_outdated_heads(&self) -> Result<Vec<CrateVersion>, ApiError> {
+    pub(crate) async fn get_crates_outdated_heads(&self) -> Result<Vec<CrateVersion>, ApiError> {
         let heads = self.get_crates_version_heads().await?;
         Ok(heads
             .into_iter()
@@ -619,7 +623,7 @@ impl Database {
 
     /// Saves the dependency analysis of a crate
     /// Returns the previous values
-    pub async fn set_crate_deps_analysis(
+    pub(crate) async fn set_crate_deps_analysis(
         &self,
         package: &str,
         version: &str,
@@ -654,7 +658,7 @@ impl Database {
     }
 
     /// Increments the counter of downloads for a crate version
-    pub async fn increment_crate_version_dl_count(&self, package: &str, version: &str) -> Result<(), ApiError> {
+    pub(crate) async fn increment_crate_version_dl_count(&self, package: &str, version: &str) -> Result<(), ApiError> {
         let row = sqlx::query!(
             "SELECT downloads FROM PackageVersion WHERE package = $1 AND version = $2 LIMIT 1",
             package,
@@ -680,7 +684,7 @@ impl Database {
     }
 
     /// Gets the download statistics for a crate
-    pub async fn get_crate_dl_stats(&self, package: &str) -> Result<DownloadStats, ApiError> {
+    pub(crate) async fn get_crate_dl_stats(&self, package: &str) -> Result<DownloadStats, ApiError> {
         let rows = sqlx::query!("SELECT version, downloads FROM PackageVersion WHERE package = $1", package)
             .fetch_all(&mut *self.transaction.borrow().await)
             .await?;
@@ -693,14 +697,14 @@ impl Database {
     }
 
     /// Gets the list of owners for a package
-    pub async fn get_crate_owners(&self, package: &str) -> Result<OwnersQueryResult, ApiError> {
+    pub(crate) async fn get_crate_owners(&self, package: &str) -> Result<OwnersQueryResult, ApiError> {
         let users = sqlx::query_as!(RegistryUser, "SELECT RegistryUser.id, isActive AS is_active, email, login, name, roles FROM RegistryUser INNER JOIN PackageOwner ON PackageOwner.owner = RegistryUser.id WHERE package = $1", package)
             .fetch_all(&mut *self.transaction.borrow().await).await?;
         Ok(OwnersQueryResult { users })
     }
 
     /// Add owners to a package
-    pub async fn add_crate_owners(&self, package: &str, new_users: &[String]) -> Result<YesNoMsgResult, ApiError> {
+    pub(crate) async fn add_crate_owners(&self, package: &str, new_users: &[String]) -> Result<YesNoMsgResult, ApiError> {
         // get all current owners
         let rows = sqlx::query!("SELECT owner FROM PackageOwner WHERE package = $1", package,)
             .fetch_all(&mut *self.transaction.borrow().await)
@@ -726,7 +730,7 @@ impl Database {
     }
 
     /// Remove owners from a package
-    pub async fn remove_crate_owners(&self, package: &str, old_users: &[String]) -> Result<YesNoResult, ApiError> {
+    pub(crate) async fn remove_crate_owners(&self, package: &str, old_users: &[String]) -> Result<YesNoResult, ApiError> {
         // get all current owners
         let rows = sqlx::query!("SELECT owner FROM PackageOwner WHERE package = $1", package,)
             .fetch_all(&mut *self.transaction.borrow().await)
@@ -756,7 +760,7 @@ impl Database {
     }
 
     /// Gets the targets for a crate
-    pub async fn get_crate_targets(&self, package: &str) -> Result<Vec<CrateInfoTarget>, ApiError> {
+    pub(crate) async fn get_crate_targets(&self, package: &str) -> Result<Vec<CrateInfoTarget>, ApiError> {
         let row = sqlx::query!(
             "SELECT targets, nativeTargets AS nativetargets FROM Package WHERE name = $1 LIMIT 1",
             package
@@ -776,7 +780,11 @@ impl Database {
     }
 
     /// Sets the targets for a crate
-    pub async fn set_crate_targets(&self, package: &str, targets: &[CrateInfoTarget]) -> Result<Vec<DocGenJobSpec>, ApiError> {
+    pub(crate) async fn set_crate_targets(
+        &self,
+        package: &str,
+        targets: &[CrateInfoTarget],
+    ) -> Result<Vec<DocGenJobSpec>, ApiError> {
         let old_targets = self.get_crate_targets(package).await?;
         let added_targets = targets
             .iter()
@@ -837,7 +845,7 @@ impl Database {
     }
 
     /// Gets the required capabilities for a crate
-    pub async fn get_crate_required_capabilities(&self, package: &str) -> Result<Vec<String>, ApiError> {
+    pub(crate) async fn get_crate_required_capabilities(&self, package: &str) -> Result<Vec<String>, ApiError> {
         let row = sqlx::query!("SELECT capabilities FROM Package WHERE name = $1 LIMIT 1", package)
             .fetch_optional(&mut *self.transaction.borrow().await)
             .await?
@@ -846,7 +854,7 @@ impl Database {
     }
 
     /// Sets the required capabilities for a crate
-    pub async fn set_crate_required_capabilities(&self, package: &str, capabilities: &[String]) -> Result<(), ApiError> {
+    pub(crate) async fn set_crate_required_capabilities(&self, package: &str, capabilities: &[String]) -> Result<(), ApiError> {
         let _ = self.get_crate_required_capabilities(package).await?;
         let capabilities = capabilities.join(",");
         sqlx::query!("UPDATE Package SET capabilities = $2 WHERE name = $1", package, capabilities)
@@ -856,7 +864,7 @@ impl Database {
     }
 
     /// Sets the deprecation status on a crate
-    pub async fn set_crate_deprecation(&self, package: &str, deprecated: bool) -> Result<(), ApiError> {
+    pub(crate) async fn set_crate_deprecation(&self, package: &str, deprecated: bool) -> Result<(), ApiError> {
         sqlx::query!("UPDATE Package SET isDeprecated = $2 WHERE name = $1", package, deprecated)
             .execute(&mut *self.transaction.borrow().await)
             .await?;
@@ -864,7 +872,7 @@ impl Database {
     }
 
     /// Sets whether a crate can have versions completely removed
-    pub async fn set_crate_can_remove(&self, package: &str, can_remove: bool) -> Result<(), ApiError> {
+    pub(crate) async fn set_crate_can_remove(&self, package: &str, can_remove: bool) -> Result<(), ApiError> {
         sqlx::query!("UPDATE Package SET canRemove = $2 WHERE name = $1", package, can_remove)
             .execute(&mut *self.transaction.borrow().await)
             .await?;

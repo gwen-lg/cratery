@@ -4,62 +4,62 @@
 
 //! Data model
 
-pub mod auth;
-pub mod cargo;
-pub mod config;
-pub mod deps;
-pub mod docs;
-pub mod errors;
-pub mod namegen;
-pub mod osv;
-pub mod packages;
-pub mod stats;
-pub mod worker;
+pub(crate) mod auth;
+pub(crate) mod cargo;
+pub(crate) mod config;
+pub(crate) mod deps;
+pub(crate) mod docs;
+pub(crate) mod errors;
+pub(crate) mod namegen;
+pub(crate) mod osv;
+pub(crate) mod packages;
+pub(crate) mod stats;
+pub(crate) mod worker;
 
 use auth::TokenUsage;
 use serde_derive::{Deserialize, Serialize};
 
 /// The object representing the application version
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AppVersion {
+pub(crate) struct AppVersion {
     /// The changeset that was used to build the app
-    pub commit: String,
+    pub(crate) commit: String,
     /// The version tag, if any
-    pub tag: String,
+    pub(crate) tag: String,
 }
 
 /// Information about the registry, as exposed on the web API
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RegistryInformation {
+pub(crate) struct RegistryInformation {
     /// The name to use for the registry in cargo and git config
     #[serde(rename = "registryName")]
-    pub registry_name: String,
+    pub(crate) registry_name: String,
     /// The version of the locally installed toolchain
     #[serde(rename = "toolchainVersionStable")]
-    pub toolchain_version_stable: semver::Version,
+    pub(crate) toolchain_version_stable: semver::Version,
     /// The version of the locally installed toolchain
     #[serde(rename = "toolchainVersionNightly")]
-    pub toolchain_version_nightly: semver::Version,
+    pub(crate) toolchain_version_nightly: semver::Version,
     /// The host target of the locally installed toolchain
     #[serde(rename = "toolchainHost")]
-    pub toolchain_host: String,
+    pub(crate) toolchain_host: String,
     /// The known built-in targets in rustc
     #[serde(rename = "toolchainTargets")]
-    pub toolchain_targets: Vec<String>,
+    pub(crate) toolchain_targets: Vec<String>,
 }
 
 /// A couple describing a crate with its name and the associated version
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CrateVersion {
+pub(crate) struct CrateVersion {
     /// The name of the crate
-    pub package: String,
+    pub(crate) package: String,
     /// The crate's version
-    pub version: String,
+    pub(crate) version: String,
 }
 
 /// An event can be handled asynchronously by the application
 #[derive(Debug, Clone)]
-pub enum AppEvent {
+pub(crate) enum AppEvent {
     /// The use of a token to authenticate
     TokenUse(TokenUsage),
     /// The download of a crate
@@ -67,7 +67,7 @@ pub enum AppEvent {
 }
 
 /// The modifier for the stable channel
-pub const CHANNEL_STABLE: &str = "+stable";
+pub(crate) const CHANNEL_STABLE: &str = "+stable";
 
 /// The modifier for the nightly channel
-pub const CHANNEL_NIGHTLY: &str = "+nightly";
+pub(crate) const CHANNEL_NIGHTLY: &str = "+nightly";

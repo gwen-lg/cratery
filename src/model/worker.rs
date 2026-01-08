@@ -22,34 +22,34 @@ use crate::utils::token::generate_token;
 
 /// The descriptor of a worker and its capabilities
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct WorkerDescriptor {
+pub(crate) struct WorkerDescriptor {
     /// The unique identifier for the worker
-    pub identifier: String,
+    pub(crate) identifier: String,
     /// The user-friendly name of the worker
-    pub name: String,
+    pub(crate) name: String,
     /// The version of the locally installed toolchain
     #[serde(rename = "toolchainVersionStable")]
-    pub toolchain_version_stable: semver::Version,
+    pub(crate) toolchain_version_stable: semver::Version,
     /// The version of the locally installed toolchain
     #[serde(rename = "toolchainVersionNightly")]
-    pub toolchain_version_nightly: semver::Version,
+    pub(crate) toolchain_version_nightly: semver::Version,
     /// The host target of the locally installed toolchain
     #[serde(rename = "toolchainHost")]
-    pub toolchain_host: String,
+    pub(crate) toolchain_host: String,
     /// The locally installed targets
     #[serde(rename = "toolchainInstalledTargets")]
-    pub toolchain_installed_targets: Vec<String>,
+    pub(crate) toolchain_installed_targets: Vec<String>,
     /// All the potential targets that the node could install
     #[serde(rename = "toolchainInstallableTargets")]
-    pub toolchain_installable_targets: Vec<String>,
+    pub(crate) toolchain_installable_targets: Vec<String>,
     /// The declared capabilities of the worker
-    pub capabilities: Vec<String>,
+    pub(crate) capabilities: Vec<String>,
 }
 
 impl WorkerDescriptor {
     /// Gets the descriptor for this worker, base of the specified configuration
     #[must_use]
-    pub fn get_my_descriptor(config: &Configuration) -> Self {
+    pub(crate) fn get_my_descriptor(config: &Configuration) -> Self {
         Self {
             identifier: generate_token(32),
             name: if let NodeRole::Worker(worker_config) = &config.self_role {
@@ -76,7 +76,7 @@ impl WorkerDescriptor {
 
     /// Gets whether this worker matches the selector
     #[must_use]
-    pub fn matches(&self, selector: &WorkerSelector) -> bool {
+    pub(crate) fn matches(&self, selector: &WorkerSelector) -> bool {
         self.match_host(selector)
             && self.match_installed_target(selector)
             && self.match_available_target(selector)
@@ -109,13 +109,13 @@ impl WorkerDescriptor {
 
 /// The data for registering a worker
 #[derive(Debug)]
-pub struct WorkerRegistrationData {
+pub(crate) struct WorkerRegistrationData {
     /// The worker's description
-    pub descriptor: WorkerDescriptor,
+    pub(crate) descriptor: WorkerDescriptor,
     /// The sender to send jobs to the worker
-    pub job_sender: Sender<JobSpecification>,
+    pub(crate) job_sender: Sender<JobSpecification>,
     /// The receiver to receive updates from the worker
-    pub update_receiver: Receiver<JobUpdate>,
+    pub(crate) update_receiver: Receiver<JobUpdate>,
 }
 
 /// The state of a worker
@@ -130,14 +130,14 @@ enum WorkerState {
 impl WorkerState {
     /// Checks whether the worker is available
     #[must_use]
-    pub const fn is_available(&self) -> bool {
+    pub(crate) const fn is_available(&self) -> bool {
         matches!(self, Self::Available(_))
     }
 }
 
 /// The state of a worker
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
-pub enum WorkerPublicState {
+pub(crate) enum WorkerPublicState {
     /// Available for jobs
     Available,
     /// In use for a job
@@ -183,11 +183,11 @@ impl WorkerData {
 
 /// The data for a worker
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct WorkerPublicData {
+pub(crate) struct WorkerPublicData {
     /// The worker's description
-    pub descriptor: WorkerDescriptor,
+    pub(crate) descriptor: WorkerDescriptor,
     /// The worker's state
-    pub state: WorkerPublicState,
+    pub(crate) state: WorkerPublicState,
 }
 
 impl<'a> From<&'a WorkerData> for WorkerPublicData {
@@ -201,21 +201,21 @@ impl<'a> From<&'a WorkerData> for WorkerPublicData {
 
 /// Data to select a suitable worker
 #[derive(Debug, Default, Clone)]
-pub struct WorkerSelector {
+pub(crate) struct WorkerSelector {
     /// Requires a specific native target
-    pub toolchain_host: Option<String>,
+    pub(crate) toolchain_host: Option<String>,
     /// Requires a target to be installed
-    pub toolchain_installed_target: Option<String>,
+    pub(crate) toolchain_installed_target: Option<String>,
     /// Requires a target to be available, but not necessarily installed
-    pub toolchain_available_target: Option<String>,
+    pub(crate) toolchain_available_target: Option<String>,
     /// All the required capabilities
-    pub capabilities: Vec<String>,
+    pub(crate) capabilities: Vec<String>,
 }
 
 impl WorkerSelector {
     /// Builds a selector that requires a native host for a target
     #[must_use]
-    pub const fn new_native_target(target: String) -> Self {
+    pub(crate) const fn new_native_target(target: String) -> Self {
         Self {
             toolchain_host: Some(target),
             toolchain_installed_target: None,
@@ -226,7 +226,7 @@ impl WorkerSelector {
 
     /// Builds a selector that requires a target to be available
     #[must_use]
-    pub const fn new_available_target(target: String) -> Self {
+    pub(crate) const fn new_available_target(target: String) -> Self {
         Self {
             toolchain_host: None,
             toolchain_installed_target: None,
@@ -278,9 +278,9 @@ impl Display for WorkerSelector {
 
 /// Error when no worker matches the selector
 #[derive(Debug, Clone)]
-pub struct NoMatchingWorkerError {
+pub(crate) struct NoMatchingWorkerError {
     /// The selector that was used
-    pub selector: WorkerSelector,
+    pub(crate) selector: WorkerSelector,
 }
 
 impl Display for NoMatchingWorkerError {
@@ -292,7 +292,7 @@ impl Display for NoMatchingWorkerError {
 impl std::error::Error for NoMatchingWorkerError {}
 
 /// Wait for a worker
-pub struct WorkerWaiter {
+pub(crate) struct WorkerWaiter {
     /// The parent manager
     manager: WorkersManager,
     /// The selector to use
@@ -342,7 +342,7 @@ impl Future for WorkerWaiter {
 
 /// A checkout for a worker while it is in use
 #[derive(Debug)]
-pub struct WorkerCheckout {
+pub(crate) struct WorkerCheckout {
     /// The parent manager
     manager: WorkersManager,
     /// The worker's description
@@ -355,12 +355,12 @@ pub struct WorkerCheckout {
 
 impl WorkerCheckout {
     /// Gets the job sender
-    pub const fn sender(&mut self) -> &mut Sender<JobSpecification> {
+    pub(crate) const fn sender(&mut self) -> &mut Sender<JobSpecification> {
         &mut self.job_sender
     }
 
     /// Gets the update receiver
-    pub const fn update_receiver(&mut self) -> &mut Receiver<JobUpdate> {
+    pub(crate) const fn update_receiver(&mut self) -> &mut Receiver<JobUpdate> {
         self.update_receiver.as_mut().unwrap()
     }
 }
@@ -391,7 +391,7 @@ struct WorkersManagerInner {
 
 /// The manager of worker
 #[derive(Debug, Default, Clone)]
-pub struct WorkersManager {
+pub(crate) struct WorkersManager {
     /// The inner data
     inner: Arc<RwLock<WorkersManagerInner>>,
     /// The active listeners
@@ -401,13 +401,13 @@ pub struct WorkersManager {
 impl WorkersManager {
     /// Gets whether there are connected workers
     #[must_use]
-    pub fn has_workers(&self) -> bool {
+    pub(crate) fn has_workers(&self) -> bool {
         !self.inner.read().unwrap().workers.is_empty()
     }
 
     /// Gets all the registered workers
     #[must_use]
-    pub fn get_workers(&self) -> Vec<WorkerPublicData> {
+    pub(crate) fn get_workers(&self) -> Vec<WorkerPublicData> {
         self.inner
             .read()
             .unwrap()
@@ -418,7 +418,7 @@ impl WorkersManager {
     }
 
     /// Registers a new worker
-    pub fn register_worker(&self, data: WorkerRegistrationData) {
+    pub(crate) fn register_worker(&self, data: WorkerRegistrationData) {
         info!("=== registering worker {}", data.descriptor.identifier);
         let worker_data = WorkerData {
             descriptor: data.descriptor,
@@ -432,7 +432,7 @@ impl WorkersManager {
 
     /// Remove a worker
     #[expect(clippy::significant_drop_tightening)]
-    pub fn remove_worker(&self, worker_id: &str) {
+    pub(crate) fn remove_worker(&self, worker_id: &str) {
         info!("=== removing worker {worker_id}");
         let found = {
             let mut inner = self.inner.write().unwrap();
@@ -449,7 +449,7 @@ impl WorkersManager {
     }
 
     /// Gets a worker for a selector
-    pub fn get_worker_for(
+    pub(crate) fn get_worker_for(
         &self,
         selector: WorkerSelector,
         job_id: JobIdentifier,
@@ -530,7 +530,7 @@ impl WorkersManager {
     }
 
     /// Adds a listener to job updates
-    pub async fn add_listener(&self, listener: tokio::sync::mpsc::Sender<WorkerEvent>) {
+    pub(crate) async fn add_listener(&self, listener: tokio::sync::mpsc::Sender<WorkerEvent>) {
         self.listeners.lock().await.push(listener);
     }
 
@@ -569,14 +569,14 @@ impl WorkersManager {
 
 /// The identifier of a job for a worker
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
-pub enum JobIdentifier {
+pub(crate) enum JobIdentifier {
     /// A documentation generation job
     DocGen(i64),
 }
 
 /// An specification of an job to be executed
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum JobSpecification {
+pub(crate) enum JobSpecification {
     /// A documentation generation job
     DocGen(DocGenJob),
 }
@@ -584,7 +584,7 @@ pub enum JobSpecification {
 impl JobSpecification {
     /// Gets the job identifier
     #[must_use]
-    pub const fn get_id(&self) -> JobIdentifier {
+    pub(crate) const fn get_id(&self) -> JobIdentifier {
         match self {
             Self::DocGen(doc_gen_job) => JobIdentifier::DocGen(doc_gen_job.id),
         }
@@ -593,14 +593,14 @@ impl JobSpecification {
 
 /// An update about the execution of a job, for the client
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum JobUpdate {
+pub(crate) enum JobUpdate {
     /// An update about a documentation generation job
     DocGen(DocGenJobUpdate),
 }
 
 /// An event about workers
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum WorkerEvent {
+pub(crate) enum WorkerEvent {
     /// A worker just connected
     WorkerConnected(Box<WorkerPublicData>),
     /// A worker was removed

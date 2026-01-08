@@ -8,21 +8,21 @@ use semver::Version;
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisorySeverity {
+pub(crate) struct AdvisorySeverity {
     #[serde(rename = "type")]
-    pub type_value: String,
-    pub score: String,
+    pub(crate) type_value: String,
+    pub(crate) score: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisoryAffectedPackage {
-    pub ecosystem: String,
-    pub name: String,
-    pub purl: String,
+pub(crate) struct AdvisoryAffectedPackage {
+    pub(crate) ecosystem: String,
+    pub(crate) name: String,
+    pub(crate) purl: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisoryAffectedRangeEvent {
+pub(crate) struct AdvisoryAffectedRangeEvent {
     introduced: Option<String>,
     fixed: Option<String>,
     last_affected: Option<String>,
@@ -30,83 +30,83 @@ pub struct AdvisoryAffectedRangeEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisoryAffectedRange {
+pub(crate) struct AdvisoryAffectedRange {
     #[serde(rename = "type")]
-    pub type_value: String,
-    pub repo: Option<String>,
-    pub events: Vec<AdvisoryAffectedRangeEvent>,
+    pub(crate) type_value: String,
+    pub(crate) repo: Option<String>,
+    pub(crate) events: Vec<AdvisoryAffectedRangeEvent>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisoryAffected {
-    pub package: AdvisoryAffectedPackage,
+pub(crate) struct AdvisoryAffected {
+    pub(crate) package: AdvisoryAffectedPackage,
     #[serde(default)]
-    pub severity: Vec<AdvisorySeverity>,
+    pub(crate) severity: Vec<AdvisorySeverity>,
     #[serde(default)]
-    pub ranges: Vec<AdvisoryAffectedRange>,
+    pub(crate) ranges: Vec<AdvisoryAffectedRange>,
     #[serde(default)]
-    pub versions: Vec<String>,
-    pub ecosystem_specific: Option<serde_json::Value>,
-    pub database_specific: Option<serde_json::Value>,
+    pub(crate) versions: Vec<String>,
+    pub(crate) ecosystem_specific: Option<serde_json::Value>,
+    pub(crate) database_specific: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisoryReference {
+pub(crate) struct AdvisoryReference {
     #[serde(rename = "type")]
-    pub type_value: String,
-    pub url: String,
+    pub(crate) type_value: String,
+    pub(crate) url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisoryCredit {
-    pub name: String,
-    pub contact: Vec<String>,
+pub(crate) struct AdvisoryCredit {
+    pub(crate) name: String,
+    pub(crate) contact: Vec<String>,
     #[serde(rename = "type")]
-    pub type_value: String,
+    pub(crate) type_value: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Advisory {
-    pub schema_version: Option<String>,
-    pub id: String,
-    pub modified: String,
-    pub published: String,
+pub(crate) struct Advisory {
+    pub(crate) schema_version: Option<String>,
+    pub(crate) id: String,
+    pub(crate) modified: String,
+    pub(crate) published: String,
     #[serde(default)]
-    pub withdrawn: String,
+    pub(crate) withdrawn: String,
     #[serde(default)]
-    pub aliases: Vec<String>,
+    pub(crate) aliases: Vec<String>,
     #[serde(default)]
-    pub related: Vec<String>,
+    pub(crate) related: Vec<String>,
     #[serde(default)]
-    pub summary: String,
+    pub(crate) summary: String,
     #[serde(default)]
-    pub detail: String,
+    pub(crate) detail: String,
     #[serde(default)]
-    pub severity: Vec<AdvisorySeverity>,
+    pub(crate) severity: Vec<AdvisorySeverity>,
     #[serde(default)]
-    pub affected: Vec<AdvisoryAffected>,
+    pub(crate) affected: Vec<AdvisoryAffected>,
     #[serde(default)]
-    pub references: Vec<AdvisoryReference>,
+    pub(crate) references: Vec<AdvisoryReference>,
     #[serde(default)]
-    pub credits: Vec<AdvisoryCredit>,
-    pub database_specific: Option<serde_json::Value>,
+    pub(crate) credits: Vec<AdvisoryCredit>,
+    pub(crate) database_specific: Option<serde_json::Value>,
 }
 
 /// A range of affected versions
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimpleAdvisoryRange {
+pub(crate) struct SimpleAdvisoryRange {
     /// Minimal affected version
-    pub introduced: Version,
+    pub(crate) introduced: Version,
     /// The minimal fixing version
-    pub fixed: Option<Version>,
+    pub(crate) fixed: Option<Version>,
     /// The last affected version
-    pub last_affected: Option<Version>,
+    pub(crate) last_affected: Option<Version>,
 }
 
 impl SimpleAdvisoryRange {
     /// Gets whether the specified version is affected by this range
     #[must_use]
-    pub fn affects(&self, version: &Version) -> bool {
+    pub(crate) fn affects(&self, version: &Version) -> bool {
         self.fixed.as_ref().map_or_else(
             || {
                 self.last_affected.as_ref().map_or_else(
@@ -121,27 +121,27 @@ impl SimpleAdvisoryRange {
 
 /// A simplified advisory against a crate to be used in services
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimpleAdvisory {
+pub(crate) struct SimpleAdvisory {
     /// The affected package
-    pub package: String,
+    pub(crate) package: String,
     /// The identifier for the advisory
-    pub id: String,
+    pub(crate) id: String,
     /// Datetime on initial publication
-    pub published: String,
+    pub(crate) published: String,
     /// Datetime on last modification
-    pub modified: String,
+    pub(crate) modified: String,
     /// The summary for the advisory
-    pub summary: String,
+    pub(crate) summary: String,
     /// The affected ranges
-    pub ranges: Vec<SimpleAdvisoryRange>,
+    pub(crate) ranges: Vec<SimpleAdvisoryRange>,
     /// The affected versions
-    pub versions: Vec<Version>,
+    pub(crate) versions: Vec<Version>,
 }
 
 impl SimpleAdvisory {
     /// Gets whether the specified version is affected by this advisory
     #[must_use]
-    pub fn affects(&self, version: &Version) -> bool {
+    pub(crate) fn affects(&self, version: &Version) -> bool {
         if self.versions.iter().any(|v| v == version) {
             return true;
         }

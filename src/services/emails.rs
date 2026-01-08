@@ -17,14 +17,14 @@ use crate::utils::FaillibleFuture;
 use crate::utils::apierror::ApiError;
 
 /// The service to send emails
-pub trait EmailSender {
+pub(crate) trait EmailSender {
     /// Sends an email
     fn send_email<'a>(&'a self, to: &'a [String], subject: &'a str, body: String) -> FaillibleFuture<'a, ()>;
 }
 
 /// Gets the email sender service
 #[must_use]
-pub fn get_service(config: Arc<Configuration>) -> Arc<dyn EmailSender + Send + Sync> {
+pub(crate) fn get_service(config: Arc<Configuration>) -> Arc<dyn EmailSender + Send + Sync> {
     Arc::new(EmailSenderImpl { config })
 }
 

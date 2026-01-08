@@ -24,7 +24,7 @@ use crate::utils::comma_sep_to_vec;
 use crate::utils::token::generate_token;
 
 /// Gets the value for an environment variable
-pub fn get_var<T: AsRef<str>>(name: T) -> Result<String, MissingEnvVar> {
+pub(crate) fn get_var<T: AsRef<str>>(name: T) -> Result<String, MissingEnvVar> {
     let key = name.as_ref();
     std::env::var(key).map_err(|original| MissingEnvVar {
         original,
@@ -34,7 +34,7 @@ pub fn get_var<T: AsRef<str>>(name: T) -> Result<String, MissingEnvVar> {
 
 /// The protocol to use for an external registry
 #[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
-pub enum ExternalRegistryProtocol {
+pub(crate) enum ExternalRegistryProtocol {
     /// The git protocol
     Git,
     /// The sparse protocol
@@ -44,27 +44,27 @@ pub enum ExternalRegistryProtocol {
 impl ExternalRegistryProtocol {
     /// Gets the protocol
     #[must_use]
-    pub const fn new(sparse: bool) -> Self {
+    pub(crate) const fn new(sparse: bool) -> Self {
         if sparse { Self::Sparse } else { Self::Git }
     }
 }
 
 /// The configuration for an external registry
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ExternalRegistry {
+pub(crate) struct ExternalRegistry {
     /// The name for the registry
-    pub name: String,
+    pub(crate) name: String,
     /// The URI to the registry's index
-    pub index: String,
+    pub(crate) index: String,
     /// The protocol to use
-    pub protocol: ExternalRegistryProtocol,
+    pub(crate) protocol: ExternalRegistryProtocol,
     /// The root uri to docs for packages in this registry
     #[serde(rename = "docsRoot")]
-    pub docs_root: String,
+    pub(crate) docs_root: String,
     /// The login to connect to the registry
-    pub login: String,
+    pub(crate) login: String,
     /// The token for authentication
-    pub token: String,
+    pub(crate) token: String,
 }
 
 impl ExternalRegistry {
@@ -98,7 +98,7 @@ impl ExternalRegistry {
 
 /// The specification of the storage system to use
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum StorageConfig {
+pub(crate) enum StorageConfig {
     /// The file system
     FileSystem {
         /// Optional parameters for the retry mechanism
@@ -167,17 +167,17 @@ impl StorageConfig {
 /// The parameters for the retry mechanism
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct RetryParams {
+pub(crate) struct RetryParams {
     /// The maximum number of retries
-    pub max_times: usize,
+    pub(crate) max_times: usize,
     /// The minimum delay between retries in milliseconds
-    pub min_delay_ms: u64,
+    pub(crate) min_delay_ms: u64,
     /// The maximum delay between retries in milliseconds
-    pub max_delay_ms: u64,
+    pub(crate) max_delay_ms: u64,
     /// The factor to use for the exponential backoff
-    pub factor: f32,
+    pub(crate) factor: f32,
     /// Whether to use jitter
-    pub jitter: bool,
+    pub(crate) jitter: bool,
 }
 
 impl RetryParams {
@@ -202,52 +202,52 @@ impl ::std::default::Default for RetryParams {
 
 /// The S3 parameters
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct S3Params {
+pub(crate) struct S3Params {
     /// Endpoint base URI for the S3 service
-    pub endpoint: String,
+    pub(crate) endpoint: String,
     /// The region to target
-    pub region: String,
+    pub(crate) region: String,
     /// The account access key
     #[serde(rename = "accessKey")]
-    pub access_key: String,
+    pub(crate) access_key: String,
     /// The account secret key
     #[serde(rename = "secretKey")]
-    pub secret_key: String,
+    pub(crate) secret_key: String,
     /// The prefix to use for the keys
-    pub root: String,
+    pub(crate) root: String,
 }
 
 /// The configuration in the index
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct IndexConfig {
+pub(crate) struct IndexConfig {
     /// The home directory where the .cargo, .git are expected to be located
     #[serde(rename = "homeDir")]
-    pub home_dir: String,
+    pub(crate) home_dir: String,
     /// The location in the file system
-    pub location: String,
+    pub(crate) location: String,
     /// Whether to allow the git protocol for clients fetching the index
     #[serde(rename = "allowProtocolGit")]
-    pub allow_protocol_git: bool,
+    pub(crate) allow_protocol_git: bool,
     /// Whether to allow the sparse protocol for clients fetching the index
     #[serde(rename = "allowProtocolSparse")]
-    pub allow_protocol_sparse: bool,
+    pub(crate) allow_protocol_sparse: bool,
     /// URI for the origin git remote to sync with
     #[serde(rename = "remoteOrigin")]
-    pub remote_origin: Option<String>,
+    pub(crate) remote_origin: Option<String>,
     /// The name of the file for the SSH key for the remote
     #[serde(rename = "remoteSshKeyFileName")]
-    pub remote_ssh_key_file_name: Option<String>,
+    pub(crate) remote_ssh_key_file_name: Option<String>,
     /// Do automatically push index changes to the remote
     #[serde(rename = "remotePushChanges")]
-    pub remote_push_changes: bool,
+    pub(crate) remote_push_changes: bool,
     /// The user name to use for commits
     #[serde(rename = "userName")]
-    pub user_name: String,
+    pub(crate) user_name: String,
     /// The user email to use for commits
     #[serde(rename = "userEmail")]
-    pub user_email: String,
+    pub(crate) user_email: String,
     /// The public configuration
-    pub public: IndexPublicConfig,
+    pub(crate) public: IndexPublicConfig,
 }
 
 impl IndexConfig {
@@ -275,27 +275,27 @@ impl IndexConfig {
 
 /// The configuration in the index
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct IndexPublicConfig {
+pub(crate) struct IndexPublicConfig {
     /// The root URI to download crates
-    pub dl: String,
+    pub(crate) dl: String,
     /// The API root URI
-    pub api: String,
+    pub(crate) api: String,
     /// Whether authentication is always required
     #[serde(rename = "auth-required")]
-    pub auth_required: bool,
+    pub(crate) auth_required: bool,
 }
 
 /// The SMTP configuration to use to send emails
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
-pub struct SmtpConfig {
+pub(crate) struct SmtpConfig {
     /// The host for sending mails
-    pub host: String,
+    pub(crate) host: String,
     /// The port for sending mails
-    pub port: u16,
+    pub(crate) port: u16,
     /// The login to connect to the SMTP host
-    pub login: String,
+    pub(crate) login: String,
     /// The password to connect to the SMTP host
-    pub password: String,
+    pub(crate) password: String,
 }
 
 impl SmtpConfig {
@@ -313,13 +313,13 @@ impl SmtpConfig {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
-pub struct EmailConfig {
+pub(crate) struct EmailConfig {
     /// The SMTP configuration to use to send emails
-    pub smtp: SmtpConfig,
+    pub(crate) smtp: SmtpConfig,
     /// The address to use a sender for mails
-    pub sender: String,
+    pub(crate) sender: String,
     /// The address to always CC for mails
-    pub cc: String,
+    pub(crate) cc: String,
 }
 
 impl EmailConfig {
@@ -335,30 +335,30 @@ impl EmailConfig {
 
 /// The configuration specific to master nodes
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
-pub struct NodeRoleMaster {
+pub(crate) struct NodeRoleMaster {
     /// The token that worker need to use to connect to the master
     #[serde(rename = "workerToken")]
-    pub worker_token: Option<String>,
+    pub(crate) worker_token: Option<String>,
 }
 
 /// The configuration specific to worker nodes
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
-pub struct NodeRoleWorker {
+pub(crate) struct NodeRoleWorker {
     /// The user-friendly name of the worker
-    pub name: String,
+    pub(crate) name: String,
     /// The token that worker need to use to connect to the master
     #[serde(rename = "workerToken")]
-    pub worker_token: String,
+    pub(crate) worker_token: String,
     /// The uri to connect to the host
     #[serde(rename = "masterUri")]
-    pub master_uri: String,
+    pub(crate) master_uri: String,
     /// The declared capabilities for the worker
-    pub capabilities: Vec<String>,
+    pub(crate) capabilities: Vec<String>,
 }
 
 /// The configuration about the role of a node
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum NodeRole {
+pub(crate) enum NodeRole {
     /// For a standalone node, i.e. a master without workers
     Standalone,
     /// The master-specific configuration
@@ -391,7 +391,7 @@ impl NodeRole {
 
     /// Gets the token that worker need to use to connect to the master, if any
     #[must_use]
-    pub fn get_worker_token(&self) -> Option<&str> {
+    pub(crate) fn get_worker_token(&self) -> Option<&str> {
         match self {
             Self::Standalone => None,
             Self::Master(master_config) => master_config.worker_token.as_deref(),
@@ -401,7 +401,7 @@ impl NodeRole {
 
     /// Gets whether this configuration is for a worker node
     #[must_use]
-    pub const fn is_worker(&self) -> bool {
+    pub(crate) const fn is_worker(&self) -> bool {
         matches!(self, Self::Worker(_))
     }
 }
@@ -409,132 +409,132 @@ impl NodeRole {
 /// A configuration for the registry
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[expect(clippy::struct_excessive_bools)]
-pub struct Configuration {
+pub(crate) struct Configuration {
     /// The log level to use
     #[serde(rename = "logLevel")]
-    pub log_level: String,
+    pub(crate) log_level: String,
     /// The datetime format to use when logging
     #[serde(rename = "logDatetimeFormat")]
-    pub log_datetime_format: String,
+    pub(crate) log_datetime_format: String,
     /// The IP to bind for the web server
     #[serde(rename = "webListenOnIp")]
-    pub web_listenon_ip: IpAddr,
+    pub(crate) web_listenon_ip: IpAddr,
     /// The port to bind for the web server
     #[serde(rename = "webListenOnPort")]
-    pub web_listenon_port: u16,
+    pub(crate) web_listenon_port: u16,
     /// The root uri from which the application is served
     #[serde(rename = "webPublicUri")]
-    pub web_public_uri: String,
+    pub(crate) web_public_uri: String,
     /// The domain for the application
     #[serde(rename = "webDomain")]
-    pub web_domain: String,
+    pub(crate) web_domain: String,
     /// The maximum size for the body of incoming requests
     #[serde(rename = "webBodyLimit")]
-    pub web_body_limit: usize,
+    pub(crate) web_body_limit: usize,
     /// The path to the local resources to serve as the web app
     #[serde(rename = "webHotReloadPath")]
-    pub web_hot_reload_path: Option<String>,
+    pub(crate) web_hot_reload_path: Option<String>,
     /// The home directory where the .cargo, .git are expected to be located
     #[serde(rename = "homeDir")]
-    pub home_dir: String,
+    pub(crate) home_dir: String,
     /// The data directory
     #[serde(rename = "dataDir")]
-    pub data_dir: String,
+    pub(crate) data_dir: String,
     /// The configuration for the index
     #[serde(rename = "indexConfig")]
-    pub index: IndexConfig,
+    pub(crate) index: IndexConfig,
     /// The configuration for the storage
-    pub storage: StorageConfig,
+    pub(crate) storage: StorageConfig,
     /// Timeout (in milli-seconds) to use when interacting with the storage
     #[serde(rename = "storageTimeout")]
-    pub storage_timeout: u64,
+    pub(crate) storage_timeout: u64,
     /// The uri of the OAuth login page
     #[serde(rename = "oauthLoginUri")]
-    pub oauth_login_uri: String,
+    pub(crate) oauth_login_uri: String,
     /// The uri of the OAuth token API endpoint
     #[serde(rename = "oauthTokenUri")]
-    pub oauth_token_uri: String,
+    pub(crate) oauth_token_uri: String,
     /// The uri of the OAuth userinfo API endpoint
     #[serde(rename = "oauthCallbackUri")]
-    pub oauth_callback_uri: String,
+    pub(crate) oauth_callback_uri: String,
     /// The uri of the OAuth userinfo API endpoint
     #[serde(rename = "oauthUserInfoUri")]
-    pub oauth_userinfo_uri: String,
+    pub(crate) oauth_userinfo_uri: String,
     /// Path to the email field in the JSON blob returned at the userinfo URI
     #[serde(rename = "oauthUserInfoPathEmail")]
-    pub oauth_userinfo_path_email: String,
+    pub(crate) oauth_userinfo_path_email: String,
     /// Path to the full name field in the JSON blob returned at the userinfo URI
     #[serde(rename = "oauthUserInfoPathFullName")]
-    pub oauth_userinfo_path_fullname: String,
+    pub(crate) oauth_userinfo_path_fullname: String,
     /// The identifier of the client to use
     #[serde(rename = "oauthClientId")]
-    pub oauth_client_id: String,
+    pub(crate) oauth_client_id: String,
     /// The secret for the client to use
     #[serde(rename = "oauthClientSecret")]
-    pub oauth_client_secret: String,
+    pub(crate) oauth_client_secret: String,
     /// The secret for the client to use
     #[serde(rename = "oauthClientScope")]
-    pub oauth_client_scope: String,
+    pub(crate) oauth_client_scope: String,
     /// The known external registries that require authentication
     #[serde(rename = "externalRegistries")]
-    pub external_registries: Vec<ExternalRegistry>,
+    pub(crate) external_registries: Vec<ExternalRegistry>,
     /// Flag to mock the documentation generation
     #[serde(rename = "docsGenMock")]
-    pub docs_gen_mock: bool,
+    pub(crate) docs_gen_mock: bool,
     /// Whether to auto-install missing targets on documentation generation
     #[serde(rename = "docsAutoinstallTargets")]
-    pub docs_autoinstall_targets: bool,
+    pub(crate) docs_autoinstall_targets: bool,
     /// Number of seconds between each check
     #[serde(rename = "depsCheckPeriod")]
-    pub deps_check_period: u64,
+    pub(crate) deps_check_period: u64,
     /// Number of milliseconds after which the local data about an external registry are deemed stale and must be pulled again
     #[serde(rename = "depsStaleRegistry")]
-    pub deps_stale_registry: u64,
+    pub(crate) deps_stale_registry: u64,
     /// Number of minutes after which the saved analysis for a crate becomes stale
     /// A negative number deactivates background analysis of crates
     #[serde(rename = "depsStaleAnalysis")]
-    pub deps_stale_analysis: i64,
+    pub(crate) deps_stale_analysis: i64,
     /// Whether to send a notification by email to the owners of a crate when some of its dependencies become outdated
     #[serde(rename = "depsNotifyOutdated")]
-    pub deps_notify_outdated: bool,
+    pub(crate) deps_notify_outdated: bool,
     /// Whether to send a notification by email to the owners of a crate when CVEs are discovered in its dependencies
     #[serde(rename = "depsNotifyCVEs")]
-    pub deps_notify_cves: bool,
+    pub(crate) deps_notify_cves: bool,
     /// The configuration for sending emails
-    pub email: EmailConfig,
+    pub(crate) email: EmailConfig,
     /// The name to use for the local registry in cargo and git config
     #[serde(rename = "selfLocalName")]
-    pub self_local_name: String,
+    pub(crate) self_local_name: String,
     /// The login to the service account for self authentication
     #[serde(rename = "selfServiceLogin")]
-    pub self_service_login: String,
+    pub(crate) self_service_login: String,
     /// The token to the service account for self authentication
     #[serde(rename = "selfServiceToken")]
-    pub self_service_token: String,
+    pub(crate) self_service_token: String,
     /// The version of the locally installed toolchain
     #[serde(rename = "selfToolchainVersionStable")]
-    pub self_toolchain_version_stable: semver::Version,
+    pub(crate) self_toolchain_version_stable: semver::Version,
     /// The version of the locally installed toolchain
     #[serde(rename = "selfToolchainVersionNightly")]
-    pub self_toolchain_version_nightly: semver::Version,
+    pub(crate) self_toolchain_version_nightly: semver::Version,
     /// The host target of the locally installed toolchain
     #[serde(rename = "selfToolchainHost")]
-    pub self_toolchain_host: String,
+    pub(crate) self_toolchain_host: String,
     /// The known targets in rustc
     #[serde(rename = "selfKnownTargets")]
-    pub self_known_targets: Vec<String>,
+    pub(crate) self_known_targets: Vec<String>,
     /// The actually installed and available targets
     #[serde(rename = "selfInstalledTargets")]
-    pub self_installed_targets: Vec<String>,
+    pub(crate) self_installed_targets: Vec<String>,
     /// The targets that can be installed (may not be present right now)
     #[serde(rename = "selfInstallableTargets")]
-    pub self_installable_targets: Vec<String>,
+    pub(crate) self_installable_targets: Vec<String>,
     /// The role for this node
     #[serde(rename = "selfRole")]
-    pub self_role: NodeRole,
+    pub(crate) self_role: NodeRole,
     /// Gets whether crates can be pubicly pull without authentication
     #[serde(rename = "selfPublicRead")]
-    pub self_public_read: bool,
+    pub(crate) self_public_read: bool,
 }
 
 impl Default for Configuration {
@@ -607,7 +607,7 @@ impl Configuration {
     /// # Errors
     ///
     /// Return a `VarError` when an expected environment variable is not present
-    pub async fn from_env() -> Result<Self, MissingEnvVar> {
+    pub(crate) async fn from_env() -> Result<Self, MissingEnvVar> {
         let home_dir = get_var("REGISTRY_HOME_DIR")
             .or_else(|_| get_var("HOME"))
             .unwrap_or_else(|_| String::from("/home/cratery"));
@@ -708,7 +708,7 @@ impl Configuration {
 
     /// Gets the path to a file in the home folder
     #[must_use]
-    pub fn get_home_path_for(&self, path: &[&str]) -> PathBuf {
+    pub(crate) fn get_home_path_for(&self, path: &[&str]) -> PathBuf {
         let mut result = PathBuf::from(&self.home_dir);
         for e in path {
             result.push(e);
@@ -718,19 +718,19 @@ impl Configuration {
 
     /// Gets the name of the file for the database
     #[must_use]
-    pub fn get_database_filename(&self) -> String {
+    pub(crate) fn get_database_filename(&self) -> String {
         format!("{}/registry.db", self.data_dir)
     }
 
     /// Gets the corresponding database url
     #[must_use]
-    pub fn get_database_url(&self) -> String {
+    pub(crate) fn get_database_url(&self) -> String {
         format!("sqlite://{}/registry.db", self.data_dir)
     }
 
     /// Gets the corresponding index git config
     #[must_use]
-    pub fn get_index_git_config(&self) -> IndexConfig {
+    pub(crate) fn get_index_git_config(&self) -> IndexConfig {
         self.index.clone()
     }
 
@@ -739,7 +739,7 @@ impl Configuration {
     /// # Errors
     ///
     /// Return an error when writing fail
-    pub async fn write_auth_config(&self) -> Result<(), ApiError> {
+    pub(crate) async fn write_auth_config(&self) -> Result<(), ApiError> {
         if self.index.allow_protocol_git {
             self.write_auth_config_git_config().await?;
             self.write_auth_config_git_credentials().await?;
@@ -890,7 +890,7 @@ impl Configuration {
 
     /// Gets the configuration to connect to this registry from the outside
     #[must_use]
-    pub fn get_self_as_external(&self) -> ExternalRegistry {
+    pub(crate) fn get_self_as_external(&self) -> ExternalRegistry {
         ExternalRegistry {
             name: self.self_local_name.clone(),
             index: if self.index.allow_protocol_sparse {
@@ -906,7 +906,7 @@ impl Configuration {
     }
 
     /// Sets the self configuration from a external registry spec
-    pub fn set_self_from_external(&mut self, external_config: ExternalRegistry) {
+    pub(crate) fn set_self_from_external(&mut self, external_config: ExternalRegistry) {
         self.self_local_name = external_config.name;
         self.web_public_uri = if external_config.protocol == ExternalRegistryProtocol::Sparse {
             external_config.index[..(external_config.index.len() - 1)].to_string()
@@ -960,7 +960,7 @@ async fn get_known_targets() -> Vec<String> {
     output.lines().map(str::to_string).collect()
 }
 
-pub async fn get_installed_targets(channel: &'static str) -> Vec<String> {
+pub(crate) async fn get_installed_targets(channel: &'static str) -> Vec<String> {
     let child = Command::new("rustup")
         .args([channel, "target", "list", "--installed"])
         .stdin(Stdio::piped())
@@ -985,7 +985,7 @@ async fn get_installable_targets(channel: &'static str) -> Vec<String> {
 }
 
 /// Attempts to install a target
-pub async fn install_target(channel: &'static str, target: &str) -> Result<(), ApiError> {
+pub(crate) async fn install_target(channel: &'static str, target: &str) -> Result<(), ApiError> {
     let child = Command::new("rustup")
         .args([channel, "target", "add", target])
         .stdin(Stdio::piped())

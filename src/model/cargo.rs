@@ -16,46 +16,46 @@ use crate::utils::hashes::sha256;
 
 /// A crate to appear in search results
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SearchResultCrate {
+pub(crate) struct SearchResultCrate {
     /// Name of the crate
-    pub name: String,
+    pub(crate) name: String,
     /// The highest version available
-    pub max_version: String,
+    pub(crate) max_version: String,
     /// Whether the entire package is deprecated
     #[serde(rename = "isDeprecated")]
-    pub is_deprecated: bool,
+    pub(crate) is_deprecated: bool,
     /// Textual description of the crate
-    pub description: String,
+    pub(crate) description: String,
 }
 
 /// The metadata of the search results
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SearchResultsMeta {
+pub(crate) struct SearchResultsMeta {
     /// Total number of results available on the server
-    pub total: usize,
+    pub(crate) total: usize,
 }
 
 /// The search results for crates
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SearchResults {
+pub(crate) struct SearchResults {
     /// The crates
-    pub crates: Vec<SearchResultCrate>,
+    pub(crate) crates: Vec<SearchResultCrate>,
     /// The metadata
-    pub meta: SearchResultsMeta,
+    pub(crate) meta: SearchResultsMeta,
 }
 
 /// A set of errors as a response for the web API
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ApiResponseErrors {
+pub(crate) struct ApiResponseErrors {
     /// The individual errors
-    pub errors: Vec<ApiResponseError>,
+    pub(crate) errors: Vec<ApiResponseError>,
 }
 
 /// An error response for the web API
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ApiResponseError {
+pub(crate) struct ApiResponseError {
     /// The details for the error
-    pub detail: String,
+    pub(crate) detail: String,
 }
 
 impl From<ApiError> for ApiResponseErrors {
@@ -68,131 +68,131 @@ impl From<ApiError> for ApiResponseErrors {
 
 /// The result for a yank operation
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct YesNoResult {
+pub(crate) struct YesNoResult {
     /// The value for the result
-    pub ok: bool,
+    pub(crate) ok: bool,
 }
 
 impl YesNoResult {
     /// Creates a new instance
     #[must_use]
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self { ok: true }
     }
 }
 
 /// The result for a yank operation
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct YesNoMsgResult {
+pub(crate) struct YesNoMsgResult {
     /// The value for the result
-    pub ok: bool,
+    pub(crate) ok: bool,
     /// A string message that will be displayed
-    pub msg: String,
+    pub(crate) msg: String,
 }
 
 impl YesNoMsgResult {
     /// Creates a new instance
     #[must_use]
-    pub const fn new(msg: String) -> Self {
+    pub(crate) const fn new(msg: String) -> Self {
         Self { ok: true, msg }
     }
 }
 
 /// The result when querying for owners
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct OwnersQueryResult {
+pub(crate) struct OwnersQueryResult {
     /// The list of owners
-    pub users: Vec<RegistryUser>,
+    pub(crate) users: Vec<RegistryUser>,
 }
 
 /// The query for adding/removing owners to a crate
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct OwnersChangeQuery {
+pub(crate) struct OwnersChangeQuery {
     /// The login of the users
-    pub users: Vec<String>,
+    pub(crate) users: Vec<String>,
 }
 
 /// A user for the registry
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RegistryUser {
+pub(crate) struct RegistryUser {
     /// The unique identifier
     /// Expected for Cargo
-    pub id: i64,
+    pub(crate) id: i64,
     /// Whether this is an active user
     #[serde(rename = "isActive")]
-    pub is_active: bool,
+    pub(crate) is_active: bool,
     /// The email, unique for each user
-    pub email: String,
+    pub(crate) email: String,
     /// The login to be used for token authentication
     /// Expected for Cargo
-    pub login: String,
+    pub(crate) login: String,
     /// The user's name
     /// Expected for Cargo
-    pub name: String,
+    pub(crate) name: String,
     /// The roles for the user
-    pub roles: String,
+    pub(crate) roles: String,
 }
 
 /// The metadata for a crate
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct CrateMetadata {
+pub(crate) struct CrateMetadata {
     /// The name of the package
-    pub name: String,
+    pub(crate) name: String,
     /// The version of the package being published
-    pub vers: String,
+    pub(crate) vers: String,
     /// Array of direct dependencies of the package
-    pub deps: Vec<CrateMetadataDependency>,
+    pub(crate) deps: Vec<CrateMetadataDependency>,
     /// Set of features defined for the package.
     /// Each feature maps to an array of features or dependencies it enables.
     /// Cargo does not impose limitations on feature names, but crates.io
     /// requires alphanumeric ASCII, `_` or `-` characters.
-    pub features: HashMap<String, Vec<String>>,
+    pub(crate) features: HashMap<String, Vec<String>>,
     /// List of strings of the authors.
     /// May be empty.
-    pub authors: Vec<String>,
+    pub(crate) authors: Vec<String>,
     /// Description field from the manifest.
     /// May be null. crates.io requires at least some content.
-    pub description: Option<String>,
+    pub(crate) description: Option<String>,
     /// String of the URL to the website for this package's documentation.
     /// May be null.
-    pub documentation: Option<String>,
+    pub(crate) documentation: Option<String>,
     /// String of the URL to the website for this package's home page.
     /// May be null.
-    pub homepage: Option<String>,
+    pub(crate) homepage: Option<String>,
     /// String of the content of the README file.
     /// May be null.
-    pub readme: Option<String>,
+    pub(crate) readme: Option<String>,
     /// String of a relative path to a README file in the crate.
     /// May be null.
-    pub readme_file: Option<String>,
+    pub(crate) readme_file: Option<String>,
     /// Array of strings of keywords for the package.
-    pub keywords: Vec<String>,
+    pub(crate) keywords: Vec<String>,
     /// Array of strings of categories for the package.
-    pub categories: Vec<String>,
+    pub(crate) categories: Vec<String>,
     /// String of the license for the package.
     /// May be null. crates.io requires either `license` or `license_file` to be set.
-    pub license: Option<String>,
+    pub(crate) license: Option<String>,
     /// String of a relative path to a license file in the crate.
     /// May be null.
-    pub license_file: Option<String>,
+    pub(crate) license_file: Option<String>,
     /// String of the URL to the website for the source repository of this package.
     /// May be null.
-    pub repository: Option<String>,
+    pub(crate) repository: Option<String>,
     /// Optional object of "status" badges. Each value is an object of
     /// arbitrary string to string mappings.
     /// crates.io has special interpretation of the format of the badges.
-    pub badges: HashMap<String, serde_json::Value>,
+    pub(crate) badges: HashMap<String, serde_json::Value>,
     /// The `links` string value from the package's manifest, or null if not
     /// specified. This field is optional and defaults to null.
-    pub links: Option<String>,
+    pub(crate) links: Option<String>,
     /// The minimal supported Rust version (optional)
     /// This must be a valid version requirement without an operator (e.g. no `=`)
-    pub rust_version: Option<String>,
+    pub(crate) rust_version: Option<String>,
 }
 
 impl CrateMetadata {
     /// Validate the crate's metadata
-    pub fn validate(&self) -> Result<CrateUploadResult, ApiError> {
+    pub(crate) fn validate(&self) -> Result<CrateUploadResult, ApiError> {
         self.validate_name()?;
         Ok(CrateUploadResult::default())
     }
@@ -221,13 +221,13 @@ impl CrateMetadata {
 }
 
 /// Creates a validation error
-pub fn validation_error(details: &str) -> Result<(), ApiError> {
+pub(crate) fn validation_error(details: &str) -> Result<(), ApiError> {
     Err(specialize(error_invalid_request(), details.to_string()))
 }
 
 /// The kind of dependency
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DependencyKind {
+pub(crate) enum DependencyKind {
     /// A normal dependency
     #[default]
     #[serde(rename = "normal")]
@@ -255,66 +255,66 @@ impl FromStr for DependencyKind {
 
 /// A dependency for a crate
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct CrateMetadataDependency {
+pub(crate) struct CrateMetadataDependency {
     /// Name of the dependency.
     /// If the dependency is renamed from the original package name,
     /// this is the original name. The new package name is stored in
     /// the `explicit_name_in_toml` field.
-    pub name: String,
+    pub(crate) name: String,
     /// The semver requirement for this dependency
-    pub version_req: String,
+    pub(crate) version_req: String,
     /// Array of features (as strings) enabled for this dependency
-    pub features: Vec<String>,
+    pub(crate) features: Vec<String>,
     /// Boolean of whether this is an optional dependency
-    pub optional: bool,
+    pub(crate) optional: bool,
     /// Boolean of whether default features are enabled
-    pub default_features: bool,
+    pub(crate) default_features: bool,
     /// The target platform for the dependency.
     /// null if not a target dependency.
     /// Otherwise, a string such as "cfg(windows)".
-    pub target: Option<String>,
+    pub(crate) target: Option<String>,
     /// The dependency kind.
     /// "dev", "build", or "normal".
-    pub kind: DependencyKind,
+    pub(crate) kind: DependencyKind,
     /// The URL of the index of the registry where this dependency is
     /// from as a string. If not specified or null, it is assumed the
     /// dependency is in the current registry.
-    pub registry: Option<String>,
+    pub(crate) registry: Option<String>,
     /// If the dependency is renamed, this is a string of the new
     /// package name. If not specified or null, this dependency is not
     /// renamed.
-    pub explicit_name_in_toml: Option<String>,
+    pub(crate) explicit_name_in_toml: Option<String>,
 }
 
 /// The result for the upload of a crate
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct CrateUploadResult {
+pub(crate) struct CrateUploadResult {
     /// The warnings
-    pub warnings: CrateUploadWarnings,
+    pub(crate) warnings: CrateUploadWarnings,
 }
 
 /// The warnings for the upload of a crate
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-pub struct CrateUploadWarnings {
+pub(crate) struct CrateUploadWarnings {
     /// Array of strings of categories that are invalid and ignored
-    pub invalid_categories: Vec<String>,
+    pub(crate) invalid_categories: Vec<String>,
     /// Array of strings of badge names that are invalid and ignored
-    pub invalid_badges: Vec<String>,
+    pub(crate) invalid_badges: Vec<String>,
     /// Array of strings of arbitrary warnings to display to the user
-    pub other: Vec<String>,
+    pub(crate) other: Vec<String>,
 }
 
 /// The upload data for publishing a crate
-pub struct CrateUploadData {
+pub(crate) struct CrateUploadData {
     /// The metadata
-    pub metadata: CrateMetadata,
+    pub(crate) metadata: CrateMetadata,
     /// The content of the .crate package
-    pub content: Vec<u8>,
+    pub(crate) content: Vec<u8>,
 }
 
 impl CrateUploadData {
     /// Deserialize the content of an input payload
-    pub fn new(buffer: &[u8]) -> Result<Self, ApiError> {
+    pub(crate) fn new(buffer: &[u8]) -> Result<Self, ApiError> {
         let mut cursor = Cursor::new(buffer);
         // read the metadata
         let metadata_length = cursor.read_u32::<LittleEndian>()? as usize;
@@ -329,7 +329,7 @@ impl CrateUploadData {
     }
 
     /// Builds the metadata to be index for this version
-    pub fn build_index_data(&self) -> IndexCrateMetadata {
+    pub(crate) fn build_index_data(&self) -> IndexCrateMetadata {
         let cksum = sha256(&self.content);
         IndexCrateMetadata {
             name: self.metadata.name.clone(),
@@ -348,25 +348,25 @@ impl CrateUploadData {
 
 /// The metadata for a crate inside the index
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct IndexCrateMetadata {
+pub(crate) struct IndexCrateMetadata {
     /// The name of the package
-    pub name: String,
+    pub(crate) name: String,
     /// The version of the package this row is describing.
     /// This must be a valid version number according to the Semantic
     /// Versioning 2.0.0 spec at [https://semver.org/](https://semver.org/).
-    pub vers: String,
+    pub(crate) vers: String,
     /// Array of direct dependencies of the package
-    pub deps: Vec<IndexCrateDependency>,
+    pub(crate) deps: Vec<IndexCrateDependency>,
     /// A SHA256 checksum of the `.crate` file.
-    pub cksum: String,
+    pub(crate) cksum: String,
     /// Set of features defined for the package.
     /// Each feature maps to an array of features or dependencies it enables.
-    pub features: HashMap<String, Vec<String>>,
+    pub(crate) features: HashMap<String, Vec<String>>,
     /// Boolean of whether this version has been yanked.
-    pub yanked: bool,
+    pub(crate) yanked: bool,
     /// The `links` string value from the package's manifest, or null if not
     /// specified. This field is optional and defaults to null.
-    pub links: Option<String>,
+    pub(crate) links: Option<String>,
     /// An unsigned 32-bit integer value indicating the schema version of this
     /// entry.
     ///
@@ -384,7 +384,7 @@ pub struct IndexCrateMetadata {
     ///   This is honored in Rust version 1.51 and newer.
     /// * 2: The addition of the `features2` field.
     ///   This is honored in Rust version 1.60 and newer.
-    pub v: Option<u32>,
+    pub(crate) v: Option<u32>,
     /// This optional field contains features with new, extended syntax.
     /// Specifically, namespaced features (`dep:`) and weak dependencies
     /// (`pkg?/feat`).
@@ -402,15 +402,15 @@ pub struct IndexCrateMetadata {
     /// Using this is only necessary if the registry wants to support cargo
     /// versions older than 1.19, which in practice is only crates.io since
     /// those older versions do not support other registries.
-    pub features2: Option<HashMap<String, Vec<String>>>,
+    pub(crate) features2: Option<HashMap<String, Vec<String>>>,
     /// The minimal supported Rust version (optional)
     /// This must be a valid version requirement without an operator (e.g. no `=`)
-    pub rust_version: Option<String>,
+    pub(crate) rust_version: Option<String>,
 }
 
 impl IndexCrateMetadata {
     /// Gets the value associated to a requested feature
-    pub fn get_feature(&self, feature: &str) -> Option<&[String]> {
+    pub(crate) fn get_feature(&self, feature: &str) -> Option<&[String]> {
         self.features2
             .as_ref()
             .and_then(|r| r.get(feature))
@@ -421,49 +421,49 @@ impl IndexCrateMetadata {
 
 /// A dependency for a crate in the index
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct IndexCrateDependency {
+pub(crate) struct IndexCrateDependency {
     /// Name of the dependency.
     /// If the dependency is renamed from the original package name,
     /// this is the original name. The new package name is stored in
     /// the `package` field.
-    pub name: String,
+    pub(crate) name: String,
     /// The semver requirement for this dependency.
     /// This must be a valid version requirement defined at
     /// [https://github.com/steveklabnik/semver#requirements](https://github.com/steveklabnik/semver#requirements).
-    pub req: String,
+    pub(crate) req: String,
     /// Array of features (as strings) enabled for this dependency
-    pub features: Vec<String>,
+    pub(crate) features: Vec<String>,
     /// Boolean of whether this is an optional dependency
-    pub optional: bool,
+    pub(crate) optional: bool,
     /// Boolean of whether default features are enabled
-    pub default_features: bool,
+    pub(crate) default_features: bool,
     /// The target platform for the dependency.
     /// null if not a target dependency.
     /// Otherwise, a string such as "cfg(windows)".
-    pub target: Option<String>,
+    pub(crate) target: Option<String>,
     /// The dependency kind.
     /// "dev", "build", or "normal".
-    pub kind: DependencyKind,
+    pub(crate) kind: DependencyKind,
     /// The URL of the index of the registry where this dependency is
     /// from as a string. If not specified or null, it is assumed the
     /// dependency is in the current registry.
-    pub registry: Option<String>,
+    pub(crate) registry: Option<String>,
     /// If the dependency is renamed, this is a string of the new
     /// package name. If not specified or null, this dependency is not
     /// renamed.
-    pub package: Option<String>,
+    pub(crate) package: Option<String>,
 }
 
 impl IndexCrateDependency {
     /// Gets the crate name for this dependency
     #[must_use]
-    pub fn get_name(&self) -> &str {
+    pub(crate) fn get_name(&self) -> &str {
         self.package.as_deref().unwrap_or(&self.name)
     }
 
     /// Gets whether this dependency is active, for the specified targets and features
     #[must_use]
-    pub fn is_active_for(&self, active_targets: &[String], active_features: &[&str]) -> bool {
+    pub(crate) fn is_active_for(&self, active_targets: &[String], active_features: &[&str]) -> bool {
         let is_in_targets = self.target.as_ref().is_none_or(|target_spec| {
             target_spec.strip_prefix("cfg(").map_or_else(
                 || active_targets.contains(target_spec),

@@ -9,11 +9,11 @@ use std::fmt::Display;
 
 /// Error when an environment error is missing
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MissingEnvVar {
+pub(crate) struct MissingEnvVar {
     /// The original error
-    pub original: VarError,
+    pub(crate) original: VarError,
     /// The name of the variable
-    pub var_name: String,
+    pub(crate) var_name: String,
 }
 
 impl Display for MissingEnvVar {

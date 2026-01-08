@@ -28,7 +28,7 @@ use crate::utils::concurrent::{MaybeFutureExt, MaybeOrNever};
 /// The interval between heartbeats, in milliseconds
 const HEARTBEAT_INTERVAL: u64 = 100;
 
-pub async fn main_worker(config: Configuration) {
+pub(crate) async fn main_worker(config: Configuration) {
     let descriptor = WorkerDescriptor::get_my_descriptor(&config);
     let NodeRole::Worker(worker_config) = &config.self_role else {
         panic!("expected worker role config");

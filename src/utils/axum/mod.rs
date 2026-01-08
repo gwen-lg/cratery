@@ -4,10 +4,10 @@
 
 //! Utility APIs for axum
 
-pub mod auth;
-pub mod embedded;
-pub mod extractors;
-pub mod sse;
+pub(crate) mod auth;
+pub(crate) mod embedded;
+pub(crate) mod extractors;
+pub(crate) mod sse;
 
 use axum::Json;
 use axum::http::StatusCode;
@@ -16,14 +16,14 @@ use log::error;
 use crate::utils::apierror::ApiError;
 
 /// Defines an API response
-pub type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, Json<ApiError>)>;
+pub(crate) type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, Json<ApiError>)>;
 
 /// Produces an error response
 ///
 /// # Panics
 ///
 /// Panic when the HTTP code is not a correct status code
-pub fn response_error_http(http: u16, error: ApiError) -> (StatusCode, Json<ApiError>) {
+pub(crate) fn response_error_http(http: u16, error: ApiError) -> (StatusCode, Json<ApiError>) {
     if http == 500 {
         // log internal errors
         error!("{error}");
@@ -35,7 +35,7 @@ pub fn response_error_http(http: u16, error: ApiError) -> (StatusCode, Json<ApiE
 }
 
 /// Produces an error response
-pub fn response_error(error: ApiError) -> (StatusCode, Json<ApiError>) {
+pub(crate) fn response_error(error: ApiError) -> (StatusCode, Json<ApiError>) {
     response_error_http(error.http, error)
 }
 
@@ -44,12 +44,12 @@ pub fn response_error(error: ApiError) -> (StatusCode, Json<ApiError>) {
 /// # Panics
 ///
 /// Panic when the HTTP code is not a correct status code
-pub fn response_ok_http<T>(http: u16, data: T) -> (StatusCode, Json<T>) {
+pub(crate) fn response_ok_http<T>(http: u16, data: T) -> (StatusCode, Json<T>) {
     (StatusCode::from_u16(http).unwrap(), Json(data))
 }
 
 /// Produces an OK response
-pub fn response_ok<T>(data: T) -> (StatusCode, Json<T>) {
+pub(crate) fn response_ok<T>(data: T) -> (StatusCode, Json<T>) {
     response_ok_http(200, data)
 }
 
@@ -58,6 +58,6 @@ pub fn response_ok<T>(data: T) -> (StatusCode, Json<T>) {
 /// # Errors
 ///
 /// Maps the corresponding error from the given `Result`.
-pub fn response<T>(result: Result<T, ApiError>) -> ApiResult<T> {
+pub(crate) fn response<T>(result: Result<T, ApiError>) -> ApiResult<T> {
     result.map_err(response_error).map(response_ok)
 }

@@ -31,7 +31,7 @@ use crate::utils::db::RwSqlitePool;
 use crate::utils::token::generate_token;
 
 /// A mocking service
-pub struct MockService;
+pub(crate) struct MockService;
 
 fn resolved_default<T: Default + Send>() -> FaillibleFuture<'static, T> {
     Box::pin(async { Ok(T::default()) })

@@ -30,7 +30,7 @@ use crate::services::ServiceProvider;
 use crate::services::database::packages::{CratesError, DepsError};
 use crate::services::database::stats::CratesStatsError;
 use crate::services::database::users::UserError;
-use crate::services::database::{Database, IsCrateManagerError, db_transaction_read, db_transaction_write};
+use crate::services::database::{Database, DbReadError, IsCrateManagerError, db_transaction_read, db_transaction_write};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
@@ -57,7 +57,7 @@ pub enum LaunchError {
     DbMigrationWrite(#[source] MigrationError),
 
     #[error("failed to read Db")]
-    DbRead(#[source] sqlx::Error),
+    DbRead(#[source] DbReadError),
 
     #[error("failed to get `index service`")]
     GetIndex(#[source] GitIndexError),
@@ -278,7 +278,7 @@ impl Application {
     /// # Errors
     ///
     /// Returns an instance of the `E` type argument
-    pub(crate) async fn db_transaction_read<'s, F, FUT, T, E>(&'s self, workload: F) -> Result<T, ApiError>
+    pub(crate) async fn db_transaction_read<'s, F, FUT, T, E>(&'s self, workload: F) -> Result<T, DbReadError>
     where
         F: FnOnce(ApplicationWithTransaction<'s>) -> FUT,
         FUT: Future<Output = Result<T, E>>,
@@ -729,7 +729,7 @@ impl Application {
     /// Gets the documentation jobs
     pub async fn get_doc_gen_jobs(&self, auth_data: &AuthData) -> Result<Vec<DocGenJob>, ApiError> {
         let _authentication = self.authenticate(auth_data).await?;
-        self.service_docs_generator.get_jobs().await
+        self.service_docs_generator.get_jobs().await.map_err(ApiError::from)
     }
 
     /// Gets the log for a documentation generation job

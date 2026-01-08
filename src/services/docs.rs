@@ -88,10 +88,12 @@ impl DocsGenerator for DocsGeneratorImpl {
     /// Gets all the jobs
     fn get_jobs(&self) -> FaillibleFuture<'_, Vec<DocGenJob>> {
         Box::pin(async move {
-            db_transaction_read(&self.service_db_pool, |database| async move {
-                database.get_docgen_jobs().await.map_err(ApiError::from)
-            })
+            db_transaction_read(
+                &self.service_db_pool,
+                |database| async move { database.get_docgen_jobs().await },
+            )
             .await
+            .map_err(ApiError::from)
         })
     }
 
@@ -99,7 +101,7 @@ impl DocsGenerator for DocsGeneratorImpl {
     fn get_job_log(&self, job_id: i64) -> FaillibleFuture<'_, String> {
         Box::pin(async move {
             let job = db_transaction_read(&self.service_db_pool, |database| async move {
-                database.get_docgen_job(job_id).await.map_err(ApiError::from)
+                database.get_docgen_job(job_id).await
             })
             .await?;
             let data = self.service_storage.download_doc_file(&job_log_location(&job)).await?;
@@ -182,9 +184,10 @@ impl DocsGeneratorImpl {
     /// Gets the next job, if any
     async fn get_next_job(&self) -> Result<Option<DocGenJob>, ApiError> {
         db_transaction_read(&self.service_db_pool, |database| async move {
-            database.get_next_docgen_job().await.map_err(ApiError::from)
+            database.get_next_docgen_job().await
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Implementation of the worker

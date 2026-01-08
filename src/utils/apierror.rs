@@ -89,7 +89,7 @@ impl AsStatusCode for std::string::FromUtf8Error {}
 
 impl AsStatusCode for axum::Error {}
 impl AsStatusCode for axum::extract::ws::rejection::WebSocketUpgradeRejection {}
-impl AsStatusCode for axum::http::uri::InvalidUri {}
+// impl AsStatusCode for axum::http::uri::InvalidUri {}
 impl AsStatusCode for lettre::address::AddressError {}
 impl AsStatusCode for lettre::error::Error {}
 impl AsStatusCode for lettre::message::header::ContentTypeErr {}
@@ -162,14 +162,4 @@ pub(crate) fn error_forbidden() -> ApiError {
 #[must_use]
 pub(crate) fn error_not_found() -> ApiError {
     ApiError::new(StatusCode::NOT_FOUND, "The requested resource cannot be found.", None)
-}
-
-/// Error when the request has a conflicts
-#[must_use]
-pub(crate) fn error_conflict() -> ApiError {
-    ApiError::new(
-        StatusCode::CONFLICT,
-        "The request could not be processed because of conflict in the current state of the resource.",
-        None,
-    )
 }

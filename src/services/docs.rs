@@ -113,10 +113,7 @@ impl DocsGenerator for DocsGeneratorImpl {
     fn queue<'a>(&'a self, spec: &'a DocGenJobSpec, trigger: &'a DocGenTrigger) -> FaillibleFuture<'a, DocGenJob> {
         Box::pin(async move {
             let job = db_transaction_write(&self.service_db_pool, "create_docgen_job", |database| async move {
-                database
-                    .create_docgen_job(spec, trigger)
-                    .await
-                    .map_err(<super::database::jobs::DocGenError as std::convert::Into<ApiError>>::into) //Hack ?
+                database.create_docgen_job(spec, trigger).await
             })
             .await?;
             self.send_event(DocGenEvent::Queued(Box::new(job.clone()))).await;
@@ -164,8 +161,7 @@ impl DocsGeneratorImpl {
                     state != DocGenJobState::Queued,
                     state == DocGenJobState::Success,
                 )
-                .await?;
-            Ok::<_, ApiError>(())
+                .await
         })
         .await?;
 

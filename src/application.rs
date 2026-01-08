@@ -31,16 +31,18 @@ use crate::services::database::admin::TokensError;
 use crate::services::database::packages::{CratesError, DepsError};
 use crate::services::database::stats::CratesStatsError;
 use crate::services::database::users::{UpdateUserError, UserError};
-use crate::services::database::{Database, DbReadError, IsCrateManagerError, db_transaction_read, db_transaction_write};
+use crate::services::database::{
+    Database, DbReadError, DbWriteError, IsCrateManagerError, db_transaction_read, db_transaction_write,
+};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
 use crate::services::index::{GitIndexError, Index, IndexError};
 use crate::services::rustsec::RustSecChecker;
 use crate::services::storage::Storage;
-use crate::utils::apierror::{ApiError, AsStatusCode, UnApiError, error_forbidden};
+use crate::utils::apierror::{ApiError, AsStatusCode, error_forbidden};
 use crate::utils::axum::auth::{AuthData, Token};
-use crate::utils::db::{MigrationError, PoolCreateError, RwSqlitePool};
+use crate::utils::db::{PoolCreateError, RwSqlitePool};
 
 #[derive(Debug, Error)]
 pub enum LaunchError {
@@ -55,7 +57,7 @@ pub enum LaunchError {
     CreateSqlitePool(#[source] PoolCreateError),
 
     #[error("failed to migrate database")]
-    DbMigrationWrite(#[source] MigrationError),
+    DbMigrationWrite(#[source] DbWriteError),
 
     #[error("failed to read Db")]
     DbRead(#[source] DbReadError),
@@ -63,13 +65,11 @@ pub enum LaunchError {
     #[error("failed to get `index service`")]
     GetIndex(#[source] GitIndexError),
 
-    ///TODO: convert to not use `ApiError` in parent
     #[error("failed to get JobSpecs for undocumented packages")]
-    JobSpecs(#[source] UnApiError),
+    JobSpecs(#[source] DbWriteError),
 
-    ///TODO: convert to not use `ApiError` in parent
     #[error("failed to launch doc generator for undocumented packages")]
-    DocGenerator(#[source] UnApiError),
+    DocGenerator(#[source] DbWriteError),
 }
 
 /// The state of this application for axum
@@ -160,12 +160,12 @@ impl Application {
             },
         )
         .await
-        .map_err(|source| LaunchError::JobSpecs(source.into()))?;
+        .map_err(LaunchError::JobSpecs)?;
         for spec in &job_specs {
             service_docs_generator
                 .queue(spec, &DocGenTrigger::MissingOnLaunch)
                 .await
-                .map_err(|source| LaunchError::DocGenerator(source.into()))?;
+                .map_err(LaunchError::DocGenerator)?;
         }
 
         // deps worker
@@ -270,6 +270,7 @@ impl Application {
             Ok::<_, EventHandlerError>(())
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Executes a piece of work in the context of a transaction
@@ -306,7 +307,7 @@ impl Application {
         &'s self,
         operation: &'static str,
         workload: F,
-    ) -> Result<T, ApiError>
+    ) -> Result<T, DbWriteError>
     where
         F: FnOnce(ApplicationWithTransaction<'s>) -> FUT,
         FUT: Future<Output = Result<T, E>>,
@@ -378,12 +379,11 @@ impl Application {
     }
 
     /// Attempts to login using an OAuth code
-    pub async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, ApiError> {
+    pub async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, DbWriteError> {
         self.db_transaction_write("login_with_oauth_code", |app| async move {
             app.database.login_with_oauth_code(&self.configuration, code).await
         })
         .await
-        .map_err(ApiError::from)
     }
 
     /// Gets the known users
@@ -760,6 +760,7 @@ impl Application {
                 })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Yank a crate version

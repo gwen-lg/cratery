@@ -29,7 +29,7 @@ use crate::services::ServiceProvider;
 use crate::services::database::packages::{CratesError, DepsError};
 use crate::services::database::stats::CratesStatsError;
 use crate::services::database::users::UserError;
-use crate::services::database::{Database, IsCrateManagerError, db_transaction_read, db_transaction_write};
+use crate::services::database::{Database, DbReadError, IsCrateManagerError, db_transaction_read, db_transaction_write};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
 use crate::services::emails::EmailSender;
@@ -237,7 +237,7 @@ impl Application {
     /// # Errors
     ///
     /// Returns an instance of the `E` type argument
-    pub(crate) async fn db_transaction_read<'s, F, FUT, T, E>(&'s self, workload: F) -> Result<T, ApiError>
+    pub(crate) async fn db_transaction_read<'s, F, FUT, T, E>(&'s self, workload: F) -> Result<T, DbReadError>
     where
         F: FnOnce(ApplicationWithTransaction<'s>) -> FUT,
         FUT: Future<Output = Result<T, E>>,
@@ -280,6 +280,7 @@ impl Application {
     pub async fn authenticate(&self, auth_data: &AuthData) -> Result<Authentication, ApiError> {
         self.db_transaction_read(|app| async move { app.authenticate(auth_data).await })
             .await
+            .map_err(ApiError::from)
     }
 
     /// Gets the registry configuration
@@ -327,6 +328,7 @@ impl Application {
                 .map_err(|source| ApplicationError::GetUserProfile { source, uid })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Attempts to login using an OAuth code
@@ -351,6 +353,7 @@ impl Application {
                 .map_err(|source| ApplicationError::GetUsers { source })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Updates the information of a user
@@ -418,6 +421,7 @@ impl Application {
                 .map_err(|source| ApplicationError::GetTokens { source })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Creates a token for the current user
@@ -463,6 +467,7 @@ impl Application {
                 .map_err(|source| ApplicationError::GetGlobalTokens { source })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Creates a global token for the registry
@@ -675,12 +680,13 @@ impl Application {
                 .map_err(|source| ApplicationError::GetUndocumentedCrates { source })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the documentation jobs
     pub async fn get_doc_gen_jobs(&self, auth_data: &AuthData) -> Result<Vec<DocGenJob>, ApiError> {
         let _authentication = self.authenticate(auth_data).await?;
-        self.service_docs_generator.get_jobs().await
+        self.service_docs_generator.get_jobs().await.map_err(ApiError::from)
     }
 
     /// Gets the log for a documentation generation job
@@ -748,6 +754,7 @@ impl Application {
                 .map_err(ApplicationError::GetOutdatedHeads)
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the download statistics for a crate
@@ -763,6 +770,7 @@ impl Application {
                 })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Gets the list of owners for a package
@@ -781,6 +789,7 @@ impl Application {
                 })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Add owners to a package
@@ -832,6 +841,7 @@ impl Application {
                 })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Sets the targets for a crate
@@ -883,6 +893,7 @@ impl Application {
             })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Sets the required capabilities for a crate
@@ -938,6 +949,7 @@ impl Application {
                 .map_err(|source| ApplicationError::GetCratesStats { source })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Search for crates
@@ -962,6 +974,7 @@ impl Application {
                 })
         })
         .await
+        .map_err(ApiError::from)
     }
 
     /// Checks the dependencies of a local crate

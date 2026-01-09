@@ -1046,7 +1046,6 @@ pub(crate) async fn index_serve(
     ))
 }
 
-#[expect(clippy::implicit_hasher)]
 pub(crate) async fn index_serve_info_refs(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,

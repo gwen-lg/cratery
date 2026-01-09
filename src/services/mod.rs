@@ -20,7 +20,6 @@ pub(crate) mod rustsec;
 pub(crate) mod storage;
 
 /// Factory responsible for building services
-#[expect(async_fn_in_trait)]
 pub(crate) trait ServiceProvider {
     /// Gets the configuration
     async fn get_configuration() -> Result<Configuration, ApiError>;

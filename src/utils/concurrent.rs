@@ -15,7 +15,6 @@ use futures::{FutureExt, Stream, StreamExt};
 ///
 /// This is similar to the `futures::future::join_all` function, except that instead of executing them all,
 /// we at most have n in concurrent execution.
-#[expect(clippy::missing_panics_doc)]
 pub(crate) async fn n_at_a_time<I, F, T, TEST>(futures: I, n: usize, must_stop: TEST) -> Vec<T>
 where
     I: IntoIterator<Item = F>,

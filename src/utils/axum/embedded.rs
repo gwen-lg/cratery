@@ -11,6 +11,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub(crate) struct EmbeddedResource {
     /// The resource's filename
+    #[expect(dead_code)]
     pub(crate) file_name: &'static str,
     /// The content type for the resource
     pub(crate) content_type: &'static str,

@@ -144,6 +144,7 @@ impl IndexCrateMetadata {
     /// Assumes this is the metadata for a crate in an external registry, including crates.io
     /// Find and rewrite the registry for built-in crates
     #[must_use]
+    #[expect(clippy::ref_option)]
     pub(crate) fn rewrite_builtin_deps(mut self, parent_registry: &Option<String>) -> Self {
         for d in &mut self.deps {
             if d.registry.is_none() {

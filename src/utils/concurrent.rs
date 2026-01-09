@@ -142,11 +142,6 @@ impl<F> MaybeOrNever<F> {
             is_terminated: false,
         }
     }
-
-    /// Gets whether there is no future inside
-    pub(crate) const fn is_never(&self) -> bool {
-        self.inner.is_none()
-    }
 }
 
 impl<F: Future + Unpin> FusedFuture for MaybeOrNever<F> {

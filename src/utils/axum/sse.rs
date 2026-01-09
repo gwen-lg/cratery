@@ -20,8 +20,6 @@ use serde::Serialize;
 pub(crate) struct Event<T> {
     /// The event type, to be serialized in the `event` field
     pub(crate) event_type: Option<String>,
-    /// The event unique id, if any
-    pub(crate) id: Option<String>,
     /// The payload
     pub(crate) data: T,
 }
@@ -29,11 +27,7 @@ pub(crate) struct Event<T> {
 impl<T> Event<T> {
     /// Produces an event from a payload
     pub(crate) const fn from_data(data: T) -> Self {
-        Self {
-            event_type: None,
-            id: None,
-            data,
-        }
+        Self { event_type: None, data }
     }
 }
 

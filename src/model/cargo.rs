@@ -44,28 +44,6 @@ pub(crate) struct SearchResults {
     pub(crate) meta: SearchResultsMeta,
 }
 
-/// A set of errors as a response for the web API
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct ApiResponseErrors {
-    /// The individual errors
-    pub(crate) errors: Vec<ApiResponseError>,
-}
-
-/// An error response for the web API
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct ApiResponseError {
-    /// The details for the error
-    pub(crate) detail: String,
-}
-
-impl From<ApiError> for ApiResponseErrors {
-    fn from(err: ApiError) -> Self {
-        Self {
-            errors: vec![ApiResponseError { detail: err.to_string() }],
-        }
-    }
-}
-
 /// The result for a yank operation
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct YesNoResult {

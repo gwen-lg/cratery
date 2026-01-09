@@ -581,16 +581,6 @@ pub(crate) enum JobSpecification {
     DocGen(DocGenJob),
 }
 
-impl JobSpecification {
-    /// Gets the job identifier
-    #[must_use]
-    pub(crate) const fn get_id(&self) -> JobIdentifier {
-        match self {
-            Self::DocGen(doc_gen_job) => JobIdentifier::DocGen(doc_gen_job.id),
-        }
-    }
-}
-
 /// An update about the execution of a job, for the client
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) enum JobUpdate {

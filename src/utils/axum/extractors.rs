@@ -5,50 +5,15 @@
 //! Custom extractors for Axum
 
 use std::fmt;
-use std::net::{IpAddr, SocketAddr};
 use std::ops::{Deref, DerefMut};
 
-use axum::RequestPartsExt;
-use axum::extract::{ConnectInfo, FromRequestParts};
+use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE;
 use cookie::{Cookie, CookieJar};
 use serde::Deserialize;
 use serde::de::Visitor;
-
-/// The client for the request, if any
-#[derive(Debug, Clone)]
-pub(crate) struct ClientIp(pub(crate) Option<IpAddr>);
-
-impl<S> FromRequestParts<S> for ClientIp
-where
-    S: Send + Sync,
-{
-    type Rejection = ();
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        if let Some(forwarded) = parts.headers.get("x-forwarded-for")
-            && let Ok(forwarded) = forwarded.to_str()
-            && let Some(Ok(client_ip)) = forwarded.split(',').next().map(str::trim).map(str::parse)
-        {
-            return Ok(Self(Some(client_ip)));
-        }
-        match parts.extract::<ConnectInfo<SocketAddr>>().await {
-            Ok(ConnectInfo(addr)) => Ok(Self(Some(addr.ip()))),
-            Err(_) => Ok(Self(None)),
-        }
-    }
-}
-
-impl fmt::Display for ClientIp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0 {
-            None => write!(f, "--"),
-            Some(ip) => write!(f, "{ip}"),
-        }
-    }
-}
 
 /// A matched argument encoded in base64
 #[derive(Debug, Clone, Default)]

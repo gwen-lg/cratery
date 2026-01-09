@@ -308,7 +308,7 @@ impl Future for WorkerWaiter {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if let Some(data) = self.worker.take() {
-            self.manager.send_event(WorkerEvent::WorkerStartedJob {
+            self.manager.send_event(WorkerEvent::StartedJob {
                 worker_id: data.descriptor.identifier.clone(),
                 job_id: self.job_id,
             });
@@ -321,7 +321,7 @@ impl Future for WorkerWaiter {
             .try_get_worker_for(&mut inner, &self.selector, self.job_id)
         {
             Ok(Some(worker)) => {
-                self.manager.send_event(WorkerEvent::WorkerStartedJob {
+                self.manager.send_event(WorkerEvent::StartedJob {
                     worker_id: worker.descriptor.identifier.clone(),
                     job_id: self.job_id,
                 });
@@ -425,7 +425,7 @@ impl WorkersManager {
             job_sender: data.job_sender,
             state: WorkerState::Available(data.update_receiver),
         };
-        let event = WorkerEvent::WorkerConnected(Box::new(WorkerPublicData::from(&worker_data)));
+        let event = WorkerEvent::Connected(Box::new(WorkerPublicData::from(&worker_data)));
         self.inner.write().unwrap().workers.push(worker_data);
         self.send_event(event);
     }
@@ -442,7 +442,7 @@ impl WorkersManager {
             size_before != size_after
         };
         if found {
-            self.send_event(WorkerEvent::WorkerRemoved {
+            self.send_event(WorkerEvent::Removed {
                 worker_id: worker_id.to_string(),
             });
         }
@@ -476,7 +476,7 @@ impl WorkersManager {
             .find(|(_, w)| w.descriptor.identifier == checkout.descriptor.identifier)
         {
             worker.state = WorkerState::Available(checkout.update_receiver.take().unwrap());
-            self.send_event(WorkerEvent::WorkerAvailable {
+            self.send_event(WorkerEvent::Available {
                 worker_id: worker.descriptor.identifier.clone(),
             });
             Some(index)
@@ -592,13 +592,13 @@ pub(crate) enum JobUpdate {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) enum WorkerEvent {
     /// A worker just connected
-    WorkerConnected(Box<WorkerPublicData>),
+    Connected(Box<WorkerPublicData>),
     /// A worker was removed
-    WorkerRemoved { worker_id: String },
+    Removed { worker_id: String },
     /// A worker started a new job
-    WorkerStartedJob { worker_id: String, job_id: JobIdentifier },
+    StartedJob { worker_id: String, job_id: JobIdentifier },
     /// A worker became available
-    WorkerAvailable { worker_id: String },
+    Available { worker_id: String },
 }
 
 #[cfg(test)]

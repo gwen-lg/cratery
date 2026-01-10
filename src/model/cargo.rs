@@ -221,7 +221,7 @@ impl CrateMetadata {
 }
 
 /// Creates a validation error
-pub fn validation_error(details: &str) -> Result<(), ApiError> {
+pub(crate) fn validation_error(details: &str) -> Result<(), ApiError> {
     Err(specialize(error_invalid_request(), details.to_string()))
 }
 

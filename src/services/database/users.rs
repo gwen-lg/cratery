@@ -207,7 +207,7 @@ impl Database {
     ) -> Result<RegistryUser, OAuthLoginError> {
         let client = reqwest::Client::new();
         // retrieve the token
-        let response = client
+        let request = client
             .post(&configuration.oauth_token_uri)
             .form(&[
                 ("grant_type", "authorization_code"),
@@ -217,7 +217,14 @@ impl Database {
                 ("client_secret", &configuration.oauth_client_secret),
             ])
             .header(reqwest::header::ACCEPT, "application/json")
-            .send()
+            .build()
+            .map_err(|source| OAuthLoginError::GetRetrieveToken {
+                source,
+                oauth_token_uri: configuration.oauth_token_uri.as_str().into(),
+            })?;
+        //log::warn!("{request:#?}");
+        let response = client
+            .execute(request)
             .await
             .map_err(|source| OAuthLoginError::GetRetrieveToken {
                 source,

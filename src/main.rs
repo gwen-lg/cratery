@@ -165,6 +165,7 @@ async fn main_serve_app(application: Arc<Application>, cookie_key: Key) -> Resul
         .fallback(routes::index_serve)
         .layer(DefaultBodyLimit::max(body_limit))
         .with_state(state);
+    log::info!("bind server on '{socket_addr}'");
     axum::serve(
         tokio::net::TcpListener::bind(socket_addr)
             .await

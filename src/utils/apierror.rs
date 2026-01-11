@@ -7,8 +7,35 @@
 use std::backtrace::Backtrace;
 use std::fmt::{Display, Formatter};
 
+use axum::Json;
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use serde_derive::{Deserialize, Serialize};
+use uuid::Uuid;
+
+/// Describes an API error
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) struct ResponseError {
+    /// Error Uuid
+    pub uuid: Uuid,
+    /// A custom error message
+    pub message: String,
+    /// Optional details for the error
+    pub details: Option<String>,
+}
+
+impl ResponseError {
+    /// Creates a new error
+    #[expect(clippy::needless_pass_by_value)]
+    #[must_use]
+    pub fn new<M: ToString>(uuid: Uuid, message: M, details: Option<String>) -> Self {
+        Self {
+            uuid,
+            message: message.to_string(),
+            details,
+        }
+    }
+}
 
 /// Helper to compatibility between `anyhow::Error` an`api::Error`or
 #[derive(Debug)]
@@ -71,6 +98,19 @@ impl Display for ApiError {
                 .try_for_each(|(idx, err)| writeln!(f, "\t [{idx}] {err}"))?;
         }
         Ok(())
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        let err_uuid = Uuid::new_v4();
+        let status_code = self.http;
+        if status_code == StatusCode::INTERNAL_SERVER_ERROR {
+            //TODO: generate an id, so user could ask support, or found in log corresponding error
+            log::error!("{self}:?");
+        }
+        let body = Json(ResponseError::new(err_uuid, self.message, self.details));
+        (status_code, body).into_response()
     }
 }
 

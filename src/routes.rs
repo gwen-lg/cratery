@@ -25,6 +25,7 @@ use futures::future::select_all;
 use futures::{SinkExt, Stream, StreamExt};
 use log::{error, trace};
 use serde::Deserialize;
+use thiserror::Error;
 use tokio::fs::File;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::channel;
@@ -42,15 +43,16 @@ use crate::model::packages::{CrateInfo, CrateInfoTarget};
 use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{JobSpecification, JobUpdate, WorkerDescriptor, WorkerPublicData, WorkerRegistrationData};
 use crate::model::{AppVersion, CrateVersion, RegistryInformation};
+use crate::services::database::{DbReadError, DbWriteError};
 use crate::services::index::Index;
 use crate::utils::apierror::{
-    ApiError, error_backend_failure, error_invalid_request, error_not_found, error_unauthorized, specialize,
+    ApiError, AsStatusCode, error_backend_failure, error_invalid_request, error_not_found, error_unauthorized, specialize,
 };
 use crate::utils::axum::auth::{AuthData, AxumStateForCookies};
 use crate::utils::axum::embedded::{EmbeddedResources, WebappResource};
 use crate::utils::axum::extractors::Base64;
 use crate::utils::axum::sse::{Event, ServerSentEventStream};
-use crate::utils::axum::{ApiResult, response, response_error};
+use crate::utils::axum::{ApiResult, response, response_error, response_ok};
 use crate::utils::token::generate_token;
 
 /// The state of this application for axum
@@ -358,22 +360,39 @@ pub async fn api_v1_get_registry_information(
 }
 
 /// Get the current user
-pub async fn api_v1_get_current_user(auth_data: AuthData, State(state): State<Arc<AxumState>>) -> ApiResult<RegistryUser> {
-    response(state.application.get_current_user(&auth_data).await)
+pub async fn api_v1_get_current_user(
+    auth_data: AuthData,
+    State(state): State<Arc<AxumState>>,
+) -> Result<(StatusCode, Json<RegistryUser>), DbReadError> {
+    state.application.get_current_user(&auth_data).await.map(response_ok)
+}
+
+#[derive(Debug, Error)]
+#[error("failed to login with oauth")]
+pub(crate) struct LoginWithOAuthError(DbWriteError);
+impl AsStatusCode for LoginWithOAuthError {
+    fn status_code(&self) -> StatusCode {
+        self.0.status_code()
+    }
+}
+impl IntoResponse for LoginWithOAuthError {
+    fn into_response(self) -> Response {
+        response_error2(self).into_response()
+    }
 }
 
 /// Attempts to login using an OAuth code
-pub async fn api_v1_login_with_oauth_code(
+pub(crate) async fn api_v1_login_with_oauth_code(
     mut auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
     body: Bytes,
-) -> Result<(StatusCode, [(HeaderName, HeaderValue); 1], Json<RegistryUser>), (StatusCode, Json<ApiError>)> {
+) -> Result<(StatusCode, [(HeaderName, HeaderValue); 1], Json<RegistryUser>), LoginWithOAuthError> {
     let code = String::from_utf8_lossy(&body);
     let registry_user = state
         .application
         .login_with_oauth_code(&code)
         .await
-        .map_err(|err| response_error(ApiError::from(err)))?;
+        .map_err(LoginWithOAuthError)?;
     let cookie = auth_data.create_id_cookie(&Authentication::new_user(registry_user.id, registry_user.email.clone()));
     trace!("api_login cookie : `{cookie}`\n\tfor user: {registry_user:?}");
     Ok((

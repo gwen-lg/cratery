@@ -12,13 +12,16 @@ pub mod users;
 
 use std::future::Future;
 
+use axum::Json;
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::application::AuthenticationError;
 use crate::model::auth::ROLE_ADMIN;
 use crate::services::database::packages::CratesError;
-use crate::utils::apierror::AsStatusCode;
+use crate::utils::apierror::{ResponseError, AsStatusCode};
 use crate::utils::db::{AppTransaction, RwSqlitePool};
 
 #[derive(Debug, Error)]
@@ -51,6 +54,22 @@ impl AsStatusCode for DbReadError {
             Self::AcquireRead { .. } | Self::Commit { .. } | Self::Rollback { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Workload { status_code, .. } => *status_code,
         }
+    }
+}
+impl IntoResponse for DbReadError {
+    fn into_response(self) -> Response {
+        let err_uuid = uuid::Uuid::new_v4();
+        let status_code = self.status_code();
+        let (message, error_msg) = match &self {
+            Self::Workload { source, status_code } => (source.to_string(), format!("{status_code:?}: {source:?}")),
+            Self::AcquireRead { source } => (self.to_string(), format!("AcquireRead: {source:?}")),
+            Self::Commit(source) => (self.to_string(), format!("Commit: {source:?}")),
+            Self::Rollback { source, error } => (self.to_string(), format!("Rollback: {source:?} after {error}")),
+        };
+        log::error!("{err_uuid} {error_msg}"); //TODO: include uuid
+        //let body = format!("{self}");
+        let body = Json(ResponseError::new(err_uuid, message, None));
+        (status_code, body).into_response()
     }
 }
 
@@ -138,6 +157,35 @@ impl AsStatusCode for DbWriteError {
             Self::AcquireWrite { .. } | Self::Commit { .. } | Self::Rollback { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Workload { status_code, .. } => *status_code,
         }
+    }
+}
+
+impl IntoResponse for DbWriteError {
+    fn into_response(self) -> Response {
+        let err_uuid = Uuid::new_v4();
+        let status_code = self.error_code();
+        let body_message = match &self {
+            Self::Workload { source, .. } => source.to_string(),
+            Self::AcquireWrite { .. } | Self::Commit { .. } | Self::Rollback { .. } => self.to_string(),
+        };
+
+        let error_msg = match &self {
+            Self::Workload {
+                source,
+                operation,
+                error_code,
+            } => format!("{operation}-{error_code:?}: {source:?}"),
+            Self::AcquireWrite { source, operation } => format!("AcquireWrite for {operation}: {source:?}"),
+            Self::Commit { source, operation } => format!("Commit for {operation}: {source:?}"),
+            Self::Rollback {
+                source,
+                operation,
+                error,
+            } => format!("Rollback for {operation}: {source:?} after {error}"),
+        };
+        log::error!("{err_uuid} {error_msg}");
+        let body = Json(ResponseError::new(err_uuid, body_message, None));
+        (status_code, body).into_response()
     }
 }
 

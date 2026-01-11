@@ -12,26 +12,29 @@ pub mod sse;
 use axum::Json;
 use axum::http::StatusCode;
 use log::error;
+use uuid::Uuid;
 
-use crate::utils::apierror::ApiError;
+use crate::utils::apierror::{ApiError, ResponseError};
 
 /// Defines an API response
-pub type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, Json<ApiError>)>;
+pub type ApiResult<T> = Result<(StatusCode, Json<T>), (StatusCode, Json<ResponseError>)>;
 
 /// Produces an error response
-pub fn response_error_http(http: StatusCode, error: ApiError) -> (StatusCode, Json<ApiError>) {
+pub fn response_error_http(http: StatusCode, error: ApiError) -> (StatusCode, Json<ResponseError>) {
+    let uuid = Uuid::new_v4();
     if http == StatusCode::INTERNAL_SERVER_ERROR {
         // log internal errors
-        error!("{error:?}");
+        error!("{uuid} {error:?}");
         if let Some(backtrace) = &error.backtrace {
             error!("{backtrace}");
         }
     }
-    (http, Json(error))
+    let body = Json(ResponseError::new(uuid, error.message, error.details));
+    (http, body)
 }
 
 /// Produces an error response
-pub fn response_error(error: ApiError) -> (StatusCode, Json<ApiError>) {
+pub fn response_error(error: ApiError) -> (StatusCode, Json<ResponseError>) {
     response_error_http(error.http, error)
 }
 

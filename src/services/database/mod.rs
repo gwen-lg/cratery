@@ -21,7 +21,7 @@ use uuid::Uuid;
 use crate::application::AuthenticationError;
 use crate::model::auth::ROLE_ADMIN;
 use crate::services::database::packages::CratesError;
-use crate::utils::apierror::{ResponseError, AsStatusCode};
+use crate::utils::apierror::{AsStatusCode, ResponseError};
 use crate::utils::db::{AppTransaction, RwSqlitePool};
 
 #[derive(Debug, Error)]
@@ -163,7 +163,7 @@ impl AsStatusCode for DbWriteError {
 impl IntoResponse for DbWriteError {
     fn into_response(self) -> Response {
         let err_uuid = Uuid::new_v4();
-        let status_code = self.error_code();
+        let status_code = self.status_code();
         let body_message = match &self {
             Self::Workload { source, .. } => source.to_string(),
             Self::AcquireWrite { .. } | Self::Commit { .. } | Self::Rollback { .. } => self.to_string(),
@@ -173,8 +173,8 @@ impl IntoResponse for DbWriteError {
             Self::Workload {
                 source,
                 operation,
-                error_code,
-            } => format!("{operation}-{error_code:?}: {source:?}"),
+                status_code,
+            } => format!("{operation}-{status_code:?}: {source:?}"),
             Self::AcquireWrite { source, operation } => format!("AcquireWrite for {operation}: {source:?}"),
             Self::Commit { source, operation } => format!("Commit for {operation}: {source:?}"),
             Self::Rollback {

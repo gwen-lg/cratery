@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 /// Describes an API error
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct ResponseError {
+pub struct ResponseError {
     /// Error Uuid
     pub uuid: Uuid,
     /// A custom error message

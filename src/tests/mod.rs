@@ -32,7 +32,7 @@ where
     let runtime = Builder::new_current_thread().enable_all().build()?;
     runtime.block_on(async move {
         let application = Application::launch::<mocks::MockService>(mocks::MockService::get_configuration().await?).await?;
-        println!("data_dir={}", &application.configuration.data_dir);
+        println!("data_dir={}", application.configuration.data_dir);
         // create the first user ad admin and its token
         setup_create_admin(&application, ADMIN_NAME).await?;
         let token_secret = setup_create_token(&application, ADMIN_UID, true, true).await?;

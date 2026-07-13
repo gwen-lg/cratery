@@ -161,9 +161,9 @@ fn setup_log() {
     let log_date_time_format =
         std::env::var("REGISTRY_LOG_DATE_TIME_FORMAT").unwrap_or_else(|_| String::from("[%Y-%m-%d %H:%M:%S]"));
 
-    let log_level = std::env::var("REGISTRY_LOG_LEVEL")
-        .map(|v| log::LevelFilter::from_str(&v).expect("invalid REGISTRY_LOG_LEVEL"))
-        .unwrap_or(log::LevelFilter::Info);
+    let log_level = std::env::var("REGISTRY_LOG_LEVEL").map_or(log::LevelFilter::Info, |v| {
+        log::LevelFilter::from_str(&v).expect("invalid REGISTRY_LOG_LEVEL")
+    });
 
     fern::Dispatch::new()
         .filter(move |metadata| {

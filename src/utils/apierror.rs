@@ -14,6 +14,8 @@ use log::Level;
 use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::utils::axum::display_error;
+
 /// Describes an API error
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ResponseError {
@@ -87,15 +89,9 @@ impl Clone for ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let err_uuid = Uuid::new_v4();
+        let uuid = Uuid::new_v4();
         let status_code = self.http;
-        let level = if status_code == StatusCode::INTERNAL_SERVER_ERROR {
-            Level::Error
-        } else {
-            Level::Info
-        };
-        log::log!(level, "{err_uuid} {self:?}");
-        let body = Json(ResponseError::new(err_uuid, self.message, self.details));
+        let body = Json(ResponseError::new(uuid, self.message, self.details));
         (status_code, body).into_response()
     }
 }
@@ -134,8 +130,21 @@ where
     E: AsStatusCode,
 {
     fn from(err: E) -> Self {
-        let code = err.status_code();
-        Self::new(code, "The operation failed in the backend.", Some(err.to_string()))
+        let status_code = err.status_code();
+        let err_uuid = Uuid::new_v4();
+        let level = if status_code == StatusCode::INTERNAL_SERVER_ERROR {
+            Level::Error
+        } else {
+            Level::Info
+        };
+        let log_msg = display_error(err_uuid, &err);
+        log::log!(level, "{log_msg}");
+
+        Self::new(
+            status_code,
+            "The operation failed in the backend. check log",
+            Some(format!("uuid: {err_uuid}")),
+        )
     }
 }
 

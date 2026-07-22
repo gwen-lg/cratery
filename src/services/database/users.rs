@@ -9,6 +9,8 @@ use std::future::Future;
 
 use axum::http::StatusCode;
 use chrono::Local;
+// use openidconnect::core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata};
+// use openidconnect::{ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, PkceCodeChallenge, RedirectUrl, Scope};
 use thiserror::Error;
 
 use super::Database;
@@ -124,12 +126,12 @@ impl AsStatusCode for UpdateUserError {
 pub enum OAuthLoginError {
     #[error("failed to retrieve token from '{oauth_token_uri}'")]
     GetRetrieveToken {
-        source: reqwest::Error,
+        source: openidconnect::reqwest::Error,
         oauth_token_uri: String,
     },
 
     #[error("failed to get retrieve token response")]
-    RetrieveTokenResponse { source: reqwest::Error },
+    RetrieveTokenResponse { source: openidconnect::reqwest::Error },
 
     #[error("failed to parse retrieve token response")]
     ParseRetrieveTokenResponse { source: serde_json::Error, body: String },
@@ -142,12 +144,12 @@ pub enum OAuthLoginError {
 
     #[error("failed to retrieve user profile from '{oauth_userinfo_uri}'")]
     GetUserProfile {
-        source: reqwest::Error,
+        source: openidconnect::reqwest::Error,
         oauth_userinfo_uri: String,
     },
 
     #[error("failed to get user profile response")]
-    GetUserProfileResponse { source: reqwest::Error },
+    GetUserProfileResponse { source: openidconnect::reqwest::Error },
 
     #[error("failed to parse get user profile response")]
     ParseGetUserProfileResponse { source: serde_json::Error, body: String },
@@ -201,9 +203,56 @@ impl Database {
         configuration: &Configuration,
         code: &str,
     ) -> Result<RegistryUser, OAuthLoginError> {
-        let client = reqwest::Client::new();
-        // retrieve the token
-        let response = client
+        let http_client = openidconnect::reqwest::ClientBuilder::new()
+            .redirect(openidconnect::reqwest::redirect::Policy::none())
+            .build()
+            .expect("reqwest Client should build");
+
+        // let oidc_url = IssuerUrl::new(format!(
+        //     "https://idm.gwenlg.fr/oauth2/openid/{}",
+        //     configuration.oauth_client_id
+        // ))
+        // .expect("url construct failed");
+        // let provider_metadata = CoreProviderMetadata::discover_async(oidc_url, &http_client)
+        //     .await
+        //     .expect("discovery failed");
+        // let client = CoreClient::from_provider_metadata(
+        //     provider_metadata,
+        //     ClientId::new("client_id".to_string()),
+        //     Some(ClientSecret::new("client_secret".to_string())),
+        // )
+        // // Set the URL the user will be redirected to after the authorization process.
+        // .set_redirect_uri(
+        //     RedirectUrl::new(format!("{}/webapp/oauthcallback.html", configuration.web_public_uri))
+        //         .expect("redirect url failed"),
+        // );
+
+        // // Generate a PKCE challenge.
+        // //let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+
+        // // Generate the full authorization URL.
+        // let (auth_url, csrf_token, nonce) = client
+        //     .authorize_url(
+        //         CoreAuthenticationFlow::Implicit(false),
+        //         CsrfToken::new_random,
+        //         Nonce::new_random,
+        //     )
+        //     // Set the desired scopes.
+        //     .add_scope(Scope::new("openid".to_string()))
+        //     .add_scope(Scope::new("email".to_string()))
+        //     .add_scope(Scope::new("profile".to_string()))
+        //     // Set the PKCE code challenge.
+        //     //.set_pkce_challenge(pkce_challenge)
+        //     .url();
+
+        // // retrieve the token
+        // // Now you can exchange it for an access token and ID token.
+        // let token_response = client
+        //     .exchange_code(AuthorizationCode::new("some authorization code".to_string()))?
+        //     // Set the PKCE code verifier.
+        //     .set_pkce_verifier(pkce_verifier)
+        //     .request(&http_client)?;
+        let response = http_client
             .post(&configuration.oauth_token_uri)
             .form(&[
                 ("grant_type", "authorization_code"),
@@ -238,7 +287,7 @@ impl Database {
             })?;
 
         // retrieve the user profile
-        let response = client
+        let response = http_client
             .get(&configuration.oauth_userinfo_uri)
             .header("authorization", format!("Bearer {}", token.access_token))
             .send()

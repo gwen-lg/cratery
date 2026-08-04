@@ -1,5 +1,6 @@
 # Required configuration for forks:
 # To enable Docker builds, configure the following in "Settings > Secrets and variables > Actions":
+# - ENABLE_DOCKER_BUILD (Variable): Set to "true"
 # - DOCKERHUB_USERNAME (Variable): Your Docker Hub username
 # - DOCKERHUB_TOKEN (Secret): Your Docker Hub personal access token
 
@@ -15,6 +16,7 @@ on:
 
 jobs:
   build:
+    if: vars.ENABLE_DOCKER_BUILD == 'true'
     uses: docker/github-builder/.github/workflows/build.yml@v1
     permissions:
       contents: read # to fetch the repository content

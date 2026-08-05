@@ -22,7 +22,7 @@ jobs:
       - name: Check fmt
         run: cargo fmt --check
       - name: Lint
-        run: cargo clippy --locked
+        run: cargo clippy --locked --profile=test
       - name: Run tests
         run: cargo test --locked
 

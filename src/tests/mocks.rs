@@ -88,7 +88,7 @@ impl ServiceProvider for MockService {
 }
 
 impl Index for MockService {
-    fn get_index_file<'a>(&'a self, _file_path: &'a std::path::Path) -> FaillibleFuture<'a, Option<PathBuf>> {
+    fn get_index_file<'a>(&'a self, _file_path: &'a std::path::Path) -> BoxFuture<'a, Result<Option<PathBuf>, GitIndexError>> {
         resolved_default()
     }
 
@@ -100,7 +100,7 @@ impl Index for MockService {
         resolved_default()
     }
 
-    fn publish_crate_version<'a>(&'a self, _metadata: &'a IndexCrateMetadata) -> FaillibleFuture<'a, ()> {
+    fn publish_crate_version<'a>(&'a self, _metadata: &'a IndexCrateMetadata) -> BoxFuture<'a, Result<(), GitIndexError>> {
         resolved_default()
     }
 

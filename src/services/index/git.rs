@@ -16,8 +16,8 @@ use tokio::sync::Mutex;
 use super::{Index, IndexError, build_package_file_path};
 use crate::model::cargo::IndexCrateMetadata;
 use crate::model::config::IndexConfig;
-use crate::utils::apierror::{ApiError, AsStatusCode};
-use crate::utils::{CommandError, FaillibleFuture, execute_at_location, execute_git};
+use crate::utils::apierror::AsStatusCode;
+use crate::utils::{CommandError, execute_at_location, execute_git};
 
 #[derive(Debug, Error)]
 pub enum GitIndexError {
@@ -168,6 +168,9 @@ pub enum GitIndexError {
         source: CommandError,
         location: PathBuf,
     },
+
+    #[error("failed to serialize metadata")]
+    SerializeMetadata(#[source] serde_json::Error),
 }
 impl AsStatusCode for GitIndexError {}
 
@@ -187,7 +190,7 @@ impl GitIndex {
 }
 
 impl Index for GitIndex {
-    fn get_index_file<'a>(&'a self, file_path: &'a Path) -> FaillibleFuture<'a, Option<PathBuf>> {
+    fn get_index_file<'a>(&'a self, file_path: &'a Path) -> BoxFuture<'a, Result<Option<PathBuf>, GitIndexError>> {
         Box::pin(async move { Ok(self.inner.lock().await.get_index_file(file_path)) })
     }
 
@@ -199,7 +202,7 @@ impl Index for GitIndex {
         Box::pin(async move { self.inner.lock().await.get_upload_pack_for(input).await })
     }
 
-    fn publish_crate_version<'a>(&'a self, metadata: &'a IndexCrateMetadata) -> FaillibleFuture<'a, ()> {
+    fn publish_crate_version<'a>(&'a self, metadata: &'a IndexCrateMetadata) -> BoxFuture<'a, Result<(), GitIndexError>> {
         Box::pin(async move { self.inner.lock().await.publish_crate_version(metadata).await })
     }
 
@@ -401,17 +404,41 @@ impl GitIndexImpl {
     }
 
     /// Publish a new version for a crate
-    async fn publish_crate_version(&self, metadata: &IndexCrateMetadata) -> Result<(), ApiError> {
+    async fn publish_crate_version(&self, metadata: &IndexCrateMetadata) -> Result<(), GitIndexError> {
         let file_name = build_package_file_path(PathBuf::from(&self.config.location), &metadata.name);
-        create_dir_all(file_name.parent().unwrap()).await?;
-        let buffer = serde_json::to_vec(metadata)?;
+        let location = file_name.parent().unwrap();
+        create_dir_all(location).await.map_err(|source| GitIndexError::CreateDirAll {
+            source,
+            location: location.to_path_buf(),
+        })?;
+        let buffer = serde_json::to_vec(metadata).map_err(GitIndexError::SerializeMetadata)?;
         // write to package file
         // append the metadata at the end
-        let mut file = OpenOptions::new().create(true).append(true).open(file_name).await?;
-        file.write_all(&buffer).await?;
-        file.write_all(&[0x0A]).await?; // add line end
-        file.flush().await?;
-        file.sync_all().await?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&file_name)
+            .await
+            .map_err(|source| GitIndexError::OpenWriteFile {
+                source,
+                path: location.to_path_buf(),
+            })?;
+        file.write_all(&buffer).await.map_err(|source| GitIndexError::WriteAll {
+            source,
+            path: file_name.clone(),
+        })?;
+        file.write_all(&[0x0A]).await.map_err(|source| GitIndexError::WriteAll {
+            source,
+            path: file_name.clone(),
+        })?; // add line end
+        file.flush().await.map_err(|source| GitIndexError::Flush {
+            source,
+            path: file_name.clone(),
+        })?;
+        file.sync_all().await.map_err(|source| GitIndexError::SyncAll {
+            source,
+            path: file_name.clone(),
+        })?;
         // commit and update
         let message = format!("Publish {}:{}", metadata.name, metadata.vers);
         self.commit_changes(&message).await?;

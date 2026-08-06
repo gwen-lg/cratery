@@ -1055,7 +1055,7 @@ pub async fn index_serve_info_refs(
             .get_service_index()
             .get_upload_pack_info_refs()
             .await
-            .map_err(map_err)?;
+            .map_err(|err| map_err(err.into()))?;
         Ok((
             StatusCode::OK,
             [
@@ -1088,7 +1088,7 @@ pub async fn index_serve_git_upload_pack(
         .get_service_index()
         .get_upload_pack_for(&body)
         .await
-        .map_err(map_err)?;
+        .map_err(|err| map_err(err.into()))?;
     Ok((
         StatusCode::OK,
         [

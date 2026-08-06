@@ -17,7 +17,6 @@ use thiserror::Error;
 
 use crate::model::cargo::IndexCrateMetadata;
 use crate::model::config::Configuration;
-use crate::utils::FaillibleFuture;
 use crate::utils::apierror::AsStatusCode;
 
 #[derive(Debug, Error)]
@@ -40,7 +39,7 @@ impl AsStatusCode for IndexError {
 /// Index implementations
 pub trait Index {
     /// Gets the full path to a file in the index
-    fn get_index_file<'a>(&'a self, file_path: &'a Path) -> FaillibleFuture<'a, Option<PathBuf>>;
+    fn get_index_file<'a>(&'a self, file_path: &'a Path) -> BoxFuture<'a, Result<Option<PathBuf>, GitIndexError>>;
 
     /// Gets the upload pack advertisement for /info/refs
     fn get_upload_pack_info_refs(&self) -> BoxFuture<'_, Result<Vec<u8>, GitIndexError>>;
@@ -49,7 +48,7 @@ pub trait Index {
     fn get_upload_pack_for<'a>(&'a self, input: &'a [u8]) -> BoxFuture<'a, Result<Vec<u8>, GitIndexError>>;
 
     /// Publish a new version for a crate
-    fn publish_crate_version<'a>(&'a self, metadata: &'a IndexCrateMetadata) -> FaillibleFuture<'a, ()>;
+    fn publish_crate_version<'a>(&'a self, metadata: &'a IndexCrateMetadata) -> BoxFuture<'a, Result<(), GitIndexError>>;
 
     /// Removes a crate version from the index
     fn remove_crate_version<'a>(&'a self, package: &'a str, version: &'a str) -> BoxFuture<'a, Result<(), IndexError>>;

@@ -21,6 +21,9 @@ use crate::services::database::packages::CratesError;
 use crate::utils::apierror::{AsStatusCode, anyhow_err_stack_to_string};
 use crate::utils::db::{AppTransaction, RwSqlitePool};
 
+/// Errors that can occur during a read transaction.
+///
+/// Each error type include error source.
 #[derive(Debug, Error)]
 pub enum DbReadError {
     #[error("failed to acquire read")]
@@ -98,7 +101,9 @@ where
     }
 }
 
-//TODO: document
+/// Errors that can occur during a write transaction.
+///
+/// Each error type include error source.
 #[derive(Debug, Error)]
 pub enum DbWriteError {
     #[error("failed to acquire write for operation `{operation}`")]

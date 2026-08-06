@@ -43,10 +43,10 @@ pub trait Index {
     fn get_index_file<'a>(&'a self, file_path: &'a Path) -> FaillibleFuture<'a, Option<PathBuf>>;
 
     /// Gets the upload pack advertisement for /info/refs
-    fn get_upload_pack_info_refs(&self) -> FaillibleFuture<'_, Vec<u8>>;
+    fn get_upload_pack_info_refs(&self) -> BoxFuture<'_, Result<Vec<u8>, GitIndexError>>;
 
     /// Gets the response for a upload pack request
-    fn get_upload_pack_for<'a>(&'a self, input: &'a [u8]) -> FaillibleFuture<'a, Vec<u8>>;
+    fn get_upload_pack_for<'a>(&'a self, input: &'a [u8]) -> BoxFuture<'a, Result<Vec<u8>, GitIndexError>>;
 
     /// Publish a new version for a crate
     fn publish_crate_version<'a>(&'a self, metadata: &'a IndexCrateMetadata) -> FaillibleFuture<'a, ()>;

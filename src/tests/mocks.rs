@@ -92,11 +92,11 @@ impl Index for MockService {
         resolved_default()
     }
 
-    fn get_upload_pack_info_refs(&self) -> FaillibleFuture<'_, Vec<u8>> {
+    fn get_upload_pack_info_refs(&self) -> BoxFuture<'_, Result<Vec<u8>, GitIndexError>> {
         resolved_default()
     }
 
-    fn get_upload_pack_for<'a>(&'a self, _input: &'a [u8]) -> FaillibleFuture<'a, Vec<u8>> {
+    fn get_upload_pack_for<'a>(&'a self, _input: &'a [u8]) -> BoxFuture<'a, Result<Vec<u8>, GitIndexError>> {
         resolved_default()
     }
 

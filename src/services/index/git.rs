@@ -154,6 +154,20 @@ pub enum GitIndexError {
         source: serde_json::Error,
         version: String,
     },
+
+    #[error("failed to upload pack info refs at location : '{location}'")]
+    UploadPackInfoRefs {
+        #[source]
+        source: CommandError,
+        location: PathBuf,
+    },
+
+    #[error("failed to upload pack  at location : '{location}'")]
+    UploadPackFor {
+        #[source]
+        source: CommandError,
+        location: PathBuf,
+    },
 }
 impl AsStatusCode for GitIndexError {}
 
@@ -177,11 +191,11 @@ impl Index for GitIndex {
         Box::pin(async move { Ok(self.inner.lock().await.get_index_file(file_path)) })
     }
 
-    fn get_upload_pack_info_refs(&self) -> FaillibleFuture<'_, Vec<u8>> {
+    fn get_upload_pack_info_refs(&self) -> BoxFuture<'_, Result<Vec<u8>, GitIndexError>> {
         Box::pin(async move { self.inner.lock().await.get_upload_pack_info_refs().await })
     }
 
-    fn get_upload_pack_for<'a>(&'a self, input: &'a [u8]) -> FaillibleFuture<'a, Vec<u8>> {
+    fn get_upload_pack_for<'a>(&'a self, input: &'a [u8]) -> BoxFuture<'a, Result<Vec<u8>, GitIndexError>> {
         Box::pin(async move { self.inner.lock().await.get_upload_pack_for(input).await })
     }
 
@@ -361,9 +375,14 @@ impl GitIndexImpl {
     }
 
     /// Gets the upload pack advertisement for /info/refs
-    async fn get_upload_pack_info_refs(&self) -> Result<Vec<u8>, ApiError> {
+    async fn get_upload_pack_info_refs(&self) -> Result<Vec<u8>, GitIndexError> {
         let location = PathBuf::from(&self.config.location);
-        let mut data = execute_at_location(&location, "git-upload-pack", &["--http-backend-info-refs", ".git"], &[]).await?;
+        let mut data = execute_at_location(&location, "git-upload-pack", &["--http-backend-info-refs", ".git"], &[])
+            .await
+            .map_err(|source| GitIndexError::UploadPackInfoRefs {
+                source,
+                location: location.clone(),
+            })?;
         let mut response = String::from("001e# service=git-upload-pack\n0000").into_bytes();
         response.append(&mut data);
         // response.append(&mut String::from("\n0000").into_bytes());
@@ -371,11 +390,14 @@ impl GitIndexImpl {
     }
 
     /// Gets the response for an upload pack request
-    async fn get_upload_pack_for(&self, input: &[u8]) -> Result<Vec<u8>, ApiError> {
+    async fn get_upload_pack_for(&self, input: &[u8]) -> Result<Vec<u8>, GitIndexError> {
         let location = PathBuf::from(&self.config.location);
         execute_at_location(&location, "git-upload-pack", &["--stateless-rpc", ".git"], input)
             .await
-            .map_err(ApiError::from)
+            .map_err(|source| GitIndexError::UploadPackFor {
+                source,
+                location: location.clone(),
+            })
     }
 
     /// Publish a new version for a crate

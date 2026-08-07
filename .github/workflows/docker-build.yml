@@ -44,8 +44,8 @@ jobs:
           INPUT_BUILD_TARGET: "${{ github.event.inputs.build_target || 'Release' }}"
           DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
         run: ./.github/scripts/docker-build.sh
-      - name: Get Git commit timestamps
-        id: git_commit_timestamp
+      - name: Get Git commit info
+        id: git_commit_info
         run: echo "commit_timestamp=$(git log -1 --pretty=%ct)" >> $GITHUB_OUTPUT
 
       - uses: docker/setup-buildx-action@v4
@@ -71,6 +71,8 @@ jobs:
           build-args: |
             BUILD_FLAGS=${{ steps.gen_docker_tags_list_and_build_args.outputs.build_flags }}
             BUILD_TARGET=${{ steps.gen_docker_tags_list_and_build_args.outputs.build_target }}
+            BUILD_GIT_TAG=${{ github.ref_name }}
+            BUILD_GIT_HASH=${{ github.sha }}
           tags: "${{ steps.gen_docker_tags_list_and_build_args.outputs.tags_list }}"
           cache-from: type=gha
           cache-to: type=gha,mode=max

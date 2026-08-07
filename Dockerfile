@@ -1,7 +1,6 @@
 ARG BUILD_FLAGS=
 ARG BUILD_TARGET=debug
 
-
 ## Base image with Rust toolchain and dependencies
 FROM buildpack-deps:24.04-curl AS base
 LABEL maintainer="Laurent Wouters <lwouters@cenotelie.fr>" vendor="Cénotélie Opérations SAS"  description="Cratery -- a private cargo registry"
@@ -43,9 +42,12 @@ RUN cd /home/cratery/src && cargo +stable chef prepare --recipe-path recipe.json
 ## Builder to build the application
 FROM chef AS builder
 ARG BUILD_FLAGS
+ARG BUILD_GIT_TAG=<none>
+ARG BUILD_GIT_HASH=<none>
 COPY --chown=cratery --from=planner /home/cratery/src/recipe.json /home/cratery/src/recipe.json
 RUN cd /home/cratery/src && cargo +stable chef cook ${BUILD_FLAGS} --recipe-path recipe.json
 COPY --chown=cratery . /home/cratery/src
+ENV GIT_TAG=$BUILD_GIT_TAG GIT_HASH=$BUILD_GIT_HASH
 RUN cd /home/cratery/src && cargo +stable build ${BUILD_FLAGS}
 
 

@@ -42,13 +42,12 @@ RUN cd /home/cratery/src && cargo +stable chef prepare --recipe-path recipe.json
 ## Builder to build the application
 FROM chef AS builder
 ARG BUILD_FLAGS
-ARG BUILD_GIT_TAG=<none>
-ARG BUILD_GIT_HASH=<none>
+ARG BUILD_GIT_TAG
+ARG BUILD_GIT_HASH
 COPY --chown=cratery --from=planner /home/cratery/src/recipe.json /home/cratery/src/recipe.json
 RUN cd /home/cratery/src && cargo +stable chef cook ${BUILD_FLAGS} --recipe-path recipe.json
 COPY --chown=cratery . /home/cratery/src
-ENV GIT_TAG=$BUILD_GIT_TAG GIT_HASH=$BUILD_GIT_HASH
-RUN cd /home/cratery/src && cargo +stable build ${BUILD_FLAGS}
+RUN cd /home/cratery/src && GIT_TAG=${BUILD_GIT_TAG} GIT_HASH=${BUILD_GIT_HASH} cargo +stable build ${BUILD_FLAGS}
 
 
 

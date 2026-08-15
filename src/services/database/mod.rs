@@ -14,11 +14,13 @@ use std::future::Future;
 
 use axum::http::StatusCode;
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::application::AuthenticationError;
 use crate::model::auth::ROLE_ADMIN;
 use crate::services::database::packages::CratesError;
 use crate::utils::apierror::{AsStatusCode, anyhow_err_stack_to_string};
+use crate::utils::axum::display_error;
 use crate::utils::db::{AppTransaction, RwSqlitePool};
 
 /// Errors that can occur during a read transaction.
@@ -32,7 +34,7 @@ pub enum DbReadError {
         source: sqlx::Error,
     },
 
-    #[error("failed to run workload operation")]
+    #[error("failed to run workload operation : {status_code}")]
     Workload {
         #[source]
         source: anyhow::Error,
@@ -113,10 +115,10 @@ pub enum DbWriteError {
         operation: &'static str,
     },
 
-    #[error("error in workload for operation `{operation}`")]
+    #[error("error in workload for operation `{operation}` with code '{status_code}'\n{source_error}")]
     Workload {
-        #[source]
-        source: anyhow::Error,
+        //#[source]
+        source_error: String,
         operation: &'static str,
         status_code: StatusCode,
     },
@@ -184,14 +186,15 @@ where
         }
         Err(error) => {
             let status_code = error.status_code();
-            let workload_err = anyhow::Error::new(error);
+            //log::debug!("ERR: {}", display_error(Uuid::nil(), &error));
+            //let workload_err = anyhow::Error::new(error);
             transaction.rollback().await.map_err(|source| DbWriteError::Rollback {
                 source,
                 operation,
-                original_err: anyhow_err_stack_to_string(&workload_err),
+                original_err: display_error(Uuid::nil(), &error), //anyhow_err_stack_to_string(&workload_err)
             })?;
             Err(DbWriteError::Workload {
-                source: workload_err,
+                source_error: display_error(Uuid::nil(), &error),
                 operation,
                 status_code,
             })

@@ -121,7 +121,7 @@ where
 {
     type Rejection = ();
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    fn from_request_parts(parts: &mut Parts, _state: &S) -> impl Future<Output = Result<Self, Self::Rejection>> {
         let mut jar = CookieJar::new();
         for cookie in &parts.headers.get_all("cookie") {
             if let Ok(cookie_value) = cookie.to_str() {
@@ -132,6 +132,6 @@ where
                 }
             }
         }
-        Ok(Self(jar))
+        std::future::ready(Ok(Self(jar)))
     }
 }

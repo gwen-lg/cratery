@@ -723,9 +723,7 @@ impl Configuration {
             self_installed_targets: get_installed_targets(CHANNEL_NIGHTLY).await,
             self_installable_targets: get_installable_targets(CHANNEL_NIGHTLY).await,
             self_role,
-            self_public_read: get_var("REGISTRY_PUBLIC_READ")
-                .ok()
-                .is_some_and(|s| s.parse().expect("invalid REGISTRY_PUBLIC_READ")),
+            self_public_read: get_var("REGISTRY_PUBLIC_READ").is_ok_and(|s| s.parse().expect("invalid REGISTRY_PUBLIC_READ")),
             external_registries,
         })
     }

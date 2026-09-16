@@ -996,6 +996,7 @@ fn index_serve_map_err(e: ApiError, domain: &str) -> (StatusCode, [(HeaderName, 
     )
 }
 
+#[expect(clippy::result_large_err)]
 pub async fn index_serve_check_auth(
     application: &Application,
     auth_data: &AuthData,
@@ -1010,6 +1011,7 @@ pub async fn index_serve_check_auth(
     Ok(())
 }
 
+#[expect(clippy::result_large_err)]
 pub async fn index_serve(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
@@ -1037,6 +1039,7 @@ pub async fn index_serve(
 }
 
 #[expect(clippy::implicit_hasher)]
+#[expect(clippy::result_large_err)]
 pub async fn index_serve_info_refs(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
@@ -1073,6 +1076,7 @@ pub async fn index_serve_info_refs(
     }
 }
 
+#[expect(clippy::result_large_err)]
 pub async fn index_serve_git_upload_pack(
     auth_data: AuthData,
     State(state): State<Arc<AxumState>>,

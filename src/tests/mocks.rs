@@ -57,6 +57,7 @@ impl ServiceProvider for MockService {
         Arc::new(Self)
     }
 
+    #[expect(clippy::unused_async_trait_impl)]
     async fn get_index(_config: &Configuration, _expect_empty: bool) -> Result<Arc<dyn Index + Send + Sync>, GitIndexError> {
         Ok(Arc::new(Self))
     }

@@ -43,7 +43,8 @@ use crate::model::packages::{CrateInfo, CrateInfoTarget};
 use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{JobSpecification, JobUpdate, WorkerDescriptor, WorkerPublicData, WorkerRegistrationData};
 use crate::model::{AppVersion, CrateVersion, RegistryInformation};
-use crate::services::database::DbWriteError;
+use crate::services::database::users::OAuthLoginError;
+use crate::services::database::{DbReadError, DbWriteError};
 use crate::services::index::Index;
 use crate::utils::apierror::{
     ApiError, AsStatusCode, ResponseError, error_backend_failure, error_invalid_request, error_not_found, error_unauthorized,
@@ -54,7 +55,6 @@ use crate::utils::axum::embedded::{EmbeddedResources, WebappResource};
 use crate::utils::axum::extractors::Base64;
 use crate::utils::axum::sse::{Event, ServerSentEventStream};
 use crate::utils::axum::{ApiResult, into_response_error, response, response_error};
-use crate::utils::token::generate_token;
 
 /// The state of this application for axum
 pub struct AxumState {
@@ -141,22 +141,10 @@ pub async fn get_favicon(State(state): State<Arc<AxumState>>) -> (StatusCode, [(
 
 /// Gets the redirection response when not authenticated
 fn get_auth_redirect(state: &AxumState) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
-    // redirect to login
-    let nonce = generate_token(64);
-    let oauth_state = generate_token(32);
-    let target = format!(
-        "{}?response_type={}&redirect_uri={}&client_id={}&scope={}&nonce={}&state={}",
-        state.application.configuration.oauth_login_uri,
-        "code",
-        urlencoding::encode(&format!(
-            "{}/webapp/oauthcallback.html",
-            state.application.configuration.web_public_uri
-        )),
-        urlencoding::encode(&state.application.configuration.oauth_client_id),
-        urlencoding::encode(&state.application.configuration.oauth_client_scope),
-        nonce,
-        oauth_state
-    );
+    let target = state
+        .application
+        .get_service_auth()
+        .get_auth_redirect(&state.application.configuration);
     (
         StatusCode::FOUND,
         [
@@ -367,11 +355,21 @@ pub async fn api_v1_get_current_user(auth_data: AuthData, State(state): State<Ar
 }
 
 #[derive(Debug, Error)]
-#[error("failed to login with oauth")]
-pub(crate) struct LoginWithOAuthError(#[source] DbWriteError);
+pub(crate) enum LoginWithOAuthError {
+    #[error(transparent)]
+    Read(#[from] DbReadError),
+    #[error(transparent)]
+    Write(#[from] DbWriteError),
+    #[error("failed to login")]
+    OAuthLoginError(#[from] OAuthLoginError),
+}
 impl AsStatusCode for LoginWithOAuthError {
     fn status_code(&self) -> StatusCode {
-        self.0.status_code()
+        match self {
+            Self::Read(db_read_error) => db_read_error.status_code(),
+            Self::Write(db_write_error) => db_write_error.status_code(),
+            Self::OAuthLoginError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
     }
 }
 impl IntoResponse for LoginWithOAuthError {
@@ -387,11 +385,7 @@ pub(crate) async fn api_v1_login_with_oauth_code(
     body: Bytes,
 ) -> Result<(StatusCode, [(HeaderName, HeaderValue); 1], Json<RegistryUser>), LoginWithOAuthError> {
     let code = String::from_utf8_lossy(&body);
-    let registry_user = state
-        .application
-        .login_with_oauth_code(&code)
-        .await
-        .map_err(LoginWithOAuthError)?;
+    let registry_user = state.application.login_with_oauth_code(&code).await?;
     let cookie = auth_data.create_id_cookie(&Authentication::new_user(registry_user.id, registry_user.email.clone()));
     Ok((
         StatusCode::OK,

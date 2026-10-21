@@ -14,12 +14,11 @@ use thiserror::Error;
 use super::Database;
 use crate::application::AuthenticationError;
 use crate::model::auth::{
-    Authentication, AuthenticationPrincipal, OAuthToken, ROLE_ADMIN, RegistryUserToken, RegistryUserTokenWithSecret, TokenKind,
-    TokenUsage, find_field_in_blob,
+    Authentication, AuthenticationPrincipal, ROLE_ADMIN, RegistryUserToken, RegistryUserTokenWithSecret, TokenKind, TokenUsage,
 };
 use crate::model::cargo::RegistryUser;
-use crate::model::config::Configuration;
 use crate::model::namegen::generate_name;
+use crate::services::authentication::UserInfo;
 use crate::utils::apierror::AsStatusCode;
 use crate::utils::token::{check_hash, generate_token, hash_token};
 
@@ -194,102 +193,40 @@ impl Database {
         maybe_row.ok_or(UserError::UserNotFound { uid })
     }
 
-    /// Attempts to login using an OAuth code
-    #[expect(clippy::too_many_lines)]
-    pub async fn login_with_oauth_code(
-        &self,
-        configuration: &Configuration,
-        code: &str,
-    ) -> Result<RegistryUser, OAuthLoginError> {
-        let client = reqwest::Client::new();
-        // retrieve the token
-        let response = client
-            .post(&configuration.oauth_token_uri)
-            .form(&[
-                ("grant_type", "authorization_code"),
-                ("code", code),
-                ("redirect_uri", &configuration.oauth_callback_uri),
-                ("client_id", &configuration.oauth_client_id),
-                ("client_secret", &configuration.oauth_client_secret),
-            ])
-            .header(reqwest::header::ACCEPT, "application/json")
-            .send()
-            .await
-            .map_err(|source| OAuthLoginError::GetRetrieveToken {
-                source,
-                oauth_token_uri: configuration.oauth_token_uri.as_str().into(),
-            })?;
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.bytes().await.unwrap();
-            return Err(OAuthLoginError::RetrieveTokenFailed {
-                status,
-                body: String::from_utf8_lossy(&body).into(),
-            });
-        }
-        let body = response
-            .bytes()
-            .await
-            .map_err(|source| OAuthLoginError::RetrieveTokenResponse { source })?;
-        let token =
-            serde_json::from_slice::<OAuthToken>(&body).map_err(|source| OAuthLoginError::ParseRetrieveTokenResponse {
-                source,
-                body: String::from_utf8_lossy(&body).into(),
-            })?;
-
-        // retrieve the user profile
-        let response = client
-            .get(&configuration.oauth_userinfo_uri)
-            .header("authorization", format!("Bearer {}", token.access_token))
-            .send()
-            .await
-            .map_err(|source| OAuthLoginError::GetUserProfile {
-                source,
-                oauth_userinfo_uri: configuration.oauth_userinfo_uri.as_str().into(),
-            })?;
-        if !response.status().is_success() {
-            let status = response.status();
-            return Err(OAuthLoginError::RetrieveUserProfile {
-                status,
-                uri: configuration.oauth_userinfo_uri.as_str().into(),
-            });
-        }
-        let body = response
-            .bytes()
-            .await
-            .map_err(|source| OAuthLoginError::GetUserProfileResponse { source })?;
-        let user_info = serde_json::from_slice::<serde_json::Value>(&body).map_err(|source| {
-            OAuthLoginError::ParseGetUserProfileResponse {
-                source,
-                body: String::from_utf8_lossy(&body).into(),
-            }
-        })?;
-        let email = find_field_in_blob(&user_info, &configuration.oauth_userinfo_path_email)
-            .ok_or_else(|| OAuthLoginError::EmailMissingInUserInfo(user_info.to_string()))?;
-
+    /// Resolve user
+    pub async fn resolve_user(&self, user_info: &UserInfo) -> Result<Option<RegistryUser>, OAuthLoginError> {
         // resolve the user
         let row = sqlx::query!(
             "SELECT id, isActive AS is_active, login, name, roles FROM RegistryUser WHERE email = $1 LIMIT 1",
-            email
+            user_info.email
         )
         .fetch_optional(&mut *self.transaction.borrow().await)
         .await
         .map_err(OAuthLoginError::UserDatabaseRequest)?;
         if let Some(row) = row {
-            if !row.is_active {
-                return Err(OAuthLoginError::InactiveUser);
+            if row.is_active {
+                // already exists
+                Ok(Some(RegistryUser {
+                    id: row.id,
+                    is_active: true,
+                    email: user_info.email.clone(), //TODO: remove clone ?
+                    login: row.login,
+                    name: row.name,
+                    roles: row.roles,
+                }))
+            } else {
+                Err(OAuthLoginError::InactiveUser)
             }
-            // already exists
-            return Ok(RegistryUser {
-                id: row.id,
-                is_active: true,
-                email: email.to_string(),
-                login: row.login,
-                name: row.name,
-                roles: row.roles,
-            });
+        } else {
+            Ok(None)
         }
-        // create the user
+    }
+
+    /// Create user if not exist
+    pub async fn create_user(self, user_info: &UserInfo) -> Result<RegistryUser, OAuthLoginError> {
+        let email = user_info.email.clone();
+        let full_name = user_info.full_name.clone();
+        // get the number of existing user
         let count = sqlx::query!("SELECT COUNT(id) AS count FROM RegistryUser")
             .fetch_one(&mut *self.transaction.borrow().await)
             .await
@@ -305,7 +242,7 @@ impl Database {
         {
             login = generate_name();
         }
-        let full_name = find_field_in_blob(&user_info, &configuration.oauth_userinfo_path_fullname).unwrap_or(&login);
+
         let roles = if count == 0 { ROLE_ADMIN } else { "" };
         let id = sqlx::query!(
             "INSERT INTO RegistryUser (isActive, email, login, name, roles) VALUES (TRUE, $1, $2, $3, $4) RETURNING id",
@@ -321,7 +258,7 @@ impl Database {
         Ok(RegistryUser {
             id,
             is_active: true,
-            email: email.to_string(),
+            email: email.clone(), //TODO: remove clone ?
             name: login.clone(),
             login,
             roles: roles.to_string(),

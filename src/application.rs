@@ -26,6 +26,7 @@ use crate::model::packages::{CrateInfo, CrateInfoTarget};
 use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{WorkerEvent, WorkerPublicData, WorkersManager};
 use crate::model::{AppEvent, CrateVersion, RegistryInformation};
+use crate::routes::LoginWithOAuthError;
 use crate::services::ServiceProvider;
 use crate::services::authentication::AuthenticationService;
 use crate::services::database::admin::TokensError;
@@ -218,6 +219,11 @@ impl Application {
         self.service_index.as_ref()
     }
 
+    #[must_use]
+    pub fn get_service_auth(&self) -> Arc<AuthenticationService> {
+        self.service_authentication.clone()
+    }
+
     /// The worker to handle the update of token usage
     async fn events_handler(&self, mut receiver: Receiver<AppEvent>) {
         const BUFFER_SIZE: usize = 16;
@@ -380,11 +386,24 @@ impl Application {
     }
 
     /// Attempts to login using an OAuth code
-    pub async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, DbWriteError> {
-        self.db_transaction_write("login_with_oauth_code", |app| async move {
-            app.database.login_with_oauth_code(&self.configuration, code).await
-        })
-        .await
+    pub(crate) async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, LoginWithOAuthError> {
+        let user_info = self
+            .service_authentication
+            .login_with_oauth_code(&self.configuration, code)
+            .await?;
+
+        let user_info_res = &user_info;
+        let user = self
+            .db_transaction_read(|app| async move { app.database.resolve_user(user_info_res).await })
+            .await?;
+
+        if let Some(user) = user {
+            Ok(user)
+        } else {
+            self.db_transaction_write("create user", |app| async move { app.database.create_user(&user_info).await })
+                .await
+                .map_err(LoginWithOAuthError::from)
+        }
     }
 
     /// Gets the known users

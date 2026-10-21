@@ -12,9 +12,11 @@ use thiserror::Error;
 use crate::model::config::{Configuration, WriteAuthConfigError};
 use crate::model::errors::ConfEnvError;
 use crate::model::worker::WorkersManager;
+use crate::services::authentication::AuthenticationService;
 use crate::utils::apierror::AsStatusCode;
 use crate::utils::db::RwSqlitePool;
 
+pub mod authentication;
 pub mod database;
 pub mod deps;
 pub mod docs;
@@ -45,6 +47,8 @@ impl AsStatusCode for ConfigurationError {}
 pub trait ServiceProvider {
     /// Gets the configuration
     async fn get_configuration() -> Result<Configuration, ConfigurationError>;
+
+    fn get_authentication() -> Arc<AuthenticationService>;
 
     /// Gets the backing storage for the documentation
     fn get_storage(config: &Configuration) -> Arc<dyn storage::Storage + Send + Sync>;
@@ -91,6 +95,10 @@ impl ServiceProvider for StandardServiceProvider {
             .await
             .map_err(ConfigurationError::WriteConfiguration)?;
         Ok(configuration)
+    }
+
+    fn get_authentication() -> Arc<AuthenticationService> {
+        Arc::new(AuthenticationService::new())
     }
 
     /// Gets the backing storage for the documentation

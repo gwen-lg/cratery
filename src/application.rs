@@ -27,6 +27,7 @@ use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{WorkerEvent, WorkerPublicData, WorkersManager};
 use crate::model::{AppEvent, CrateVersion, RegistryInformation};
 use crate::services::ServiceProvider;
+use crate::services::authentication::AuthenticationService;
 use crate::services::database::admin::TokensError;
 use crate::services::database::packages::{CratesError, DepsError};
 use crate::services::database::stats::CratesStatsError;
@@ -96,6 +97,8 @@ pub struct Application {
     app_events_sender: Sender<AppEvent>,
     /// The connected worker nodes
     pub worker_nodes: WorkersManager,
+    /// User oidc waiting
+    service_authentication: Arc<AuthenticationService>,
 }
 
 /// The empty database
@@ -142,6 +145,7 @@ impl Application {
             service_storage.clone(),
             worker_nodes.clone(),
         );
+        let service_authentication = P::get_authentication();
 
         // check undocumented packages
         let default_target = &configuration.self_toolchain_host;
@@ -189,6 +193,7 @@ impl Application {
             service_docs_generator,
             app_events_sender,
             worker_nodes,
+            service_authentication,
         });
 
         let _handle = {

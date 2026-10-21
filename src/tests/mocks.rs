@@ -19,6 +19,7 @@ use crate::model::deps::DepsAnalysis;
 use crate::model::docs::{DocGenEvent, DocGenJob, DocGenJobSpec, DocGenJobState, DocGenTrigger};
 use crate::model::osv::SimpleAdvisory;
 use crate::model::worker::WorkersManager;
+use crate::services::authentication::AuthenticationService;
 use crate::services::database::{DbReadError, DbWriteError};
 use crate::services::deps::DepsChecker;
 use crate::services::docs::DocsGenerator;
@@ -51,6 +52,10 @@ impl ServiceProvider for MockService {
             data_dir,
             ..Default::default()
         })
+    }
+
+    fn get_authentication() -> Arc<AuthenticationService> {
+        Arc::new(AuthenticationService::new())
     }
 
     fn get_storage(_config: &Configuration) -> Arc<dyn Storage + Send + Sync> {

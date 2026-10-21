@@ -121,6 +121,9 @@ impl AsStatusCode for UpdateUserError {
 
 #[derive(Debug, Error)]
 pub enum OAuthLoginError {
+    #[error("no corresponding oidc connection code found")]
+    NoCorrespondingCode,
+
     #[error("failed to retrieve token from '{oauth_token_uri}'")]
     GetRetrieveToken {
         source: reqwest::Error,
@@ -163,6 +166,7 @@ pub enum OAuthLoginError {
 impl AsStatusCode for OAuthLoginError {
     fn status_code(&self) -> StatusCode {
         match self {
+            Self::NoCorrespondingCode => StatusCode::BAD_REQUEST, //TODO: this is the good status for expired connection triy ?
             Self::EmailMissingInUserInfo(_)
             | Self::RetrieveTokenFailed { .. }
             | Self::RetrieveUserProfile { .. }

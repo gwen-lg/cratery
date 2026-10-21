@@ -140,11 +140,12 @@ pub async fn get_favicon(State(state): State<Arc<AxumState>>) -> (StatusCode, [(
 }
 
 /// Gets the redirection response when not authenticated
-fn get_auth_redirect(state: &AxumState) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
+async fn get_auth_redirect(state: &AxumState) -> (StatusCode, [(HeaderName, HeaderValue); 2]) {
     let target = state
         .application
         .get_service_auth()
-        .get_auth_redirect(&state.application.configuration);
+        .get_auth_redirect(&state.application.configuration)
+        .await;
     (
         StatusCode::FOUND,
         [
@@ -216,7 +217,7 @@ pub async fn get_webapp_resource(
     if path == "index.html" {
         let is_authenticated = state.application.authenticate(&auth_data).await.is_ok();
         if !is_authenticated {
-            let (code, headers) = get_auth_redirect(&state);
+            let (code, headers) = get_auth_redirect(&state).await;
             return Ok((code, headers, Cow::Borrowed(&[])));
         }
     }
@@ -259,7 +260,7 @@ pub async fn get_docs_resource(
 ) -> Result<(StatusCode, [(HeaderName, HeaderValue); 2], Body), (StatusCode, [(HeaderName, HeaderValue); 1], Body)> {
     let is_authenticated = state.application.authenticate(&auth_data).await.is_ok();
     if !is_authenticated {
-        let (code, headers) = get_auth_redirect(&state);
+        let (code, headers) = get_auth_redirect(&state).await;
         return Ok((code, headers, Body::empty()));
     }
 

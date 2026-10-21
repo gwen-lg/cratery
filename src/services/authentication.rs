@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use moka::future::Cache;
 use reqwest::Client;
 
 use crate::{
@@ -21,21 +24,30 @@ pub struct UserInfo {
 /// Authentication is managed with idconnect protocole.
 pub struct AuthenticationService {
     http_client: Client,
+    pending_client_connect: Cache<String, String>,
 }
 
 impl AuthenticationService {
     #[must_use]
     pub fn new() -> Self {
         let http_client = Client::new();
-        Self { http_client }
+        let pending_client_connect = Cache::builder()
+            .max_capacity(100)
+            .time_to_live(Duration::from_mins(5))
+            .build();
+        Self {
+            http_client,
+            pending_client_connect,
+        }
     }
 
     /// Gets the redirection response when not authenticated
     #[must_use]
-    pub fn get_auth_redirect(&self, configuration: &Configuration) -> String {
+    pub async fn get_auth_redirect(&self, configuration: &Configuration) -> String {
         // redirect to login
         let nonce = generate_token(64);
         let oauth_state = generate_token(32);
+        self.pending_client_connect.insert(oauth_state.clone(), nonce.clone()).await;
         format!(
             "{}?response_type={}&redirect_uri={}&client_id={}&scope={}&nonce={}&state={}",
             configuration.oauth_login_uri,
@@ -50,6 +62,12 @@ impl AuthenticationService {
 
     /// Attempts to login using an OAuth code
     pub async fn login_with_oauth_code(&self, configuration: &Configuration, code: &str) -> Result<UserInfo, OAuthLoginError> {
+        let _nonce = self
+            .pending_client_connect
+            .get(&code.to_string())
+            .await
+            .ok_or(OAuthLoginError::NoCorrespondingCode)?;
+
         // retrieve the token
         let response = self
             .http_client

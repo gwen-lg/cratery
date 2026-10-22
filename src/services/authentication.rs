@@ -2,19 +2,14 @@ use std::time::Duration;
 
 use moka::future::Cache;
 use openidconnect::{
-    ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, RedirectUrl, Scope,
+    AccessTokenHash, AuthorizationCode, ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, OAuth2TokenResponse as _,
+    RedirectUrl, Scope,
     core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata},
     reqwest::{Client, ClientBuilder, Url, redirect},
 };
-
-use crate::{
-    model::{
-        auth::{OAuthToken, find_field_in_blob},
-        config::Configuration,
-    },
-    services::database::users::OAuthLoginError,
-};
 use serde::Deserialize;
+
+use crate::{model::config::Configuration, services::database::users::OAuthLoginError};
 
 // Type returned from ProviderMetadata discovering
 type OIDCProviderMetadata = openidconnect::ProviderMetadata<
@@ -124,86 +119,68 @@ impl AuthenticationService {
             .await
             .ok_or(OAuthLoginError::NoCorrespondingCode)?;
 
-        // // retrieve the token
-        // // Now you can exchange it for an access token and ID token.
-        // let token_response = client
-        //     .exchange_code(AuthorizationCode::new("some authorization code".to_string()))?
-        //     // Set the PKCE code verifier.
-        //     .set_pkce_verifier(pkce_verifier)
-        //     .request(&http_client)?;
-        let response = self
-            .http_client
-            .post(&configuration.oauth_token_uri)
-            .form(&[
-                ("grant_type", "authorization_code"),
-                ("code", &code),
-                ("redirect_uri", &configuration.oauth_callback_uri),
-                ("client_id", &configuration.oauth_client_id),
-                ("client_secret", &configuration.oauth_client_secret),
-            ])
-            .header(reqwest::header::ACCEPT, "application/json")
-            .send()
-            .await
-            .map_err(|source| OAuthLoginError::GetRetrieveToken {
-                source,
-                oauth_token_uri: configuration.oauth_token_uri.as_str().into(),
-            })?;
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.bytes().await.unwrap();
-            return Err(OAuthLoginError::RetrieveTokenFailed {
-                status,
-                body: String::from_utf8_lossy(&body).into(),
-            });
-        }
-        let body = response
-            .bytes()
-            .await
-            .map_err(|source| OAuthLoginError::RetrieveTokenResponse { source })?;
-        let token =
-            serde_json::from_slice::<OAuthToken>(&body).map_err(|source| OAuthLoginError::ParseRetrieveTokenResponse {
-                source,
-                body: String::from_utf8_lossy(&body).into(),
-            })?;
+        let provider_metadata = self.provider_metadata(configuration).await?;
+        let oidc_client = CoreClient::from_provider_metadata(
+            provider_metadata,
+            ClientId::new(configuration.oauth_client_id.clone()),
+            Some(ClientSecret::new(configuration.oauth_client_secret.clone())),
+        )
+        .set_redirect_uri(
+            RedirectUrl::new(format!("{}/webapp/oauthcallback.html", configuration.web_public_uri))
+                .expect("redirect url failed"),
+        );
 
-        // retrieve the user profile
-        let response = self
-            .http_client
-            .get(&configuration.oauth_userinfo_uri)
-            .header("authorization", format!("Bearer {}", token.access_token))
-            .send()
+        let auth_code = AuthorizationCode::new(code);
+        // Now you can exchange it for an access token and ID token.
+        let token_response = oidc_client
+            .exchange_code(auth_code)
+            .unwrap()
+            //.set_pkce_verifier(pkce_verifier) // Set the PKCE code verifier.
+            .request_async(&self.http_client)
             .await
-            .map_err(|source| OAuthLoginError::GetUserProfile {
-                source,
-                oauth_userinfo_uri: configuration.oauth_userinfo_uri.as_str().into(),
-            })?;
-        if !response.status().is_success() {
-            let status = response.status();
-            return Err(OAuthLoginError::RetrieveUserProfile {
-                status,
-                uri: configuration.oauth_userinfo_uri.as_str().into(),
-            });
-        }
-        let body = response
-            .bytes()
-            .await
-            .map_err(|source| OAuthLoginError::GetUserProfileResponse { source })?;
-        let auth_response = serde_json::from_slice::<serde_json::Value>(&body).map_err(|source| {
-            OAuthLoginError::ParseGetUserProfileResponse {
-                source,
-                body: String::from_utf8_lossy(&body).into(),
+            .map_err(OAuthLoginError::RequestTokenError)?;
+
+        // Extract the ID token claims after verifying its authenticity and nonce.
+        let id_token_verifier = oidc_client.id_token_verifier();
+        let id_token = token_response
+            .extra_fields()
+            .id_token()
+            .ok_or(OAuthLoginError::MissingTokenId)?;
+        let id_token_claims = id_token.claims(&id_token_verifier, &nonce).map_err(OAuthLoginError::Claims)?;
+
+        // Verify the access token hash to ensure that the access token hasn't been substituted for another user's.
+        if let Some(expected_access_token_hash) = id_token_claims.access_token_hash() {
+            let actual_access_token_hash = AccessTokenHash::from_token(
+                token_response.access_token(),
+                id_token.signing_alg().unwrap(),
+                id_token.signing_key(&id_token_verifier).unwrap(),
+            )
+            .unwrap();
+            if actual_access_token_hash != *expected_access_token_hash {
+                return Err(OAuthLoginError::InvalidAccessToken);
             }
-        })?;
-
-        let resp_nonce = find_field_in_blob(&auth_response, "nonce").ok_or(OAuthLoginError::NonceMissingInResponse)?;
-        if resp_nonce != nonce.secret() {
-            return Err(OAuthLoginError::InvalidNonceInResponse);
         }
 
-        let email = find_field_in_blob(&auth_response, &configuration.oauth_userinfo_path_email)
-            .ok_or_else(|| OAuthLoginError::EmailMissingInUserInfo(auth_response.to_string()))?;
-        let full_name =
-            find_field_in_blob(&auth_response, &configuration.oauth_userinfo_path_fullname).map(ToString::to_string);
+        // The authenticated user's identity is now available. See the IdTokenClaims struct for a
+        // complete listing of the available claims.
+        log::debug!(
+            "User {} with e-mail address {} has authenticated successfully",
+            id_token_claims.subject().as_str(),
+            id_token_claims.email().map_or("<not provided>", |email| email.as_str()),
+        );
+
+        let email = id_token_claims.email().ok_or_else(|| {
+            let response = format!("{token_response:#?}");
+            OAuthLoginError::EmailMissingInUserInfo(response)
+        })?;
+        let full_name = id_token_claims
+            .name()
+            .ok_or_else(|| {
+                let response = format!("{token_response:#?}");
+                OAuthLoginError::NameMissingInUserInfo(response)
+            })?
+            .get(None)
+            .map(|user_name| user_name.to_string());
 
         Ok(UserInfo {
             email: email.to_string(),

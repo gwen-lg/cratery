@@ -142,31 +142,6 @@ pub struct RegistryUserTokenWithSecret {
     pub can_admin: bool,
 }
 
-/// An OAuth access token
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OAuthToken {
-    /// The access token
-    pub access_token: String,
-    /// The type of token
-    pub token_type: String,
-    /// The expiration time
-    pub expires_in: Option<i64>,
-    /// The refresh token
-    pub refresh_token: Option<String>,
-    /// The grant scope
-    pub scope: Option<String>,
-}
-
-/// Finds a field in a JSON blob
-#[must_use]
-pub fn find_field_in_blob<'v>(blob: &'v serde_json::Value, path: &str) -> Option<&'v str> {
-    let mut last = blob;
-    for item in path.split('.') {
-        last = last.as_object()?.get(item)?;
-    }
-    last.as_str()
-}
-
 /// The kind of auth token
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {

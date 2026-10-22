@@ -9,7 +9,8 @@ use std::future::Future;
 
 use axum::http::StatusCode;
 use chrono::Local;
-use openidconnect::reqwest;
+use openidconnect::core::CoreErrorResponseType;
+use openidconnect::{ClaimsVerificationError, HttpClientError, RequestTokenError, StandardErrorResponse, reqwest};
 use thiserror::Error;
 
 use super::Database;
@@ -164,6 +165,9 @@ pub enum OAuthLoginError {
     #[error("no email in returned user info:\n{0}")]
     EmailMissingInUserInfo(String),
 
+    #[error("no name in returned user info:\n{0}")]
+    NameMissingInUserInfo(String),
+
     #[error("missing Nonce in OIDC response")]
     NonceMissingInResponse,
 
@@ -176,14 +180,33 @@ pub enum OAuthLoginError {
         err: openidconnect::DiscoveryError<openidconnect::HttpClientError<reqwest::Error>>,
         uri: String,
     },
+
+    #[error("Server did not return an ID token")]
+    MissingTokenId,
+
+    #[error("Invalid access token")]
+    InvalidAccessToken,
+
+    #[error("claims verification error")]
+    Claims(#[source] ClaimsVerificationError),
+
+    #[error("the request token failed")]
+    RequestTokenError(
+        #[source] RequestTokenError<HttpClientError<reqwest::Error>, StandardErrorResponse<CoreErrorResponseType>>,
+    ),
 }
 impl AsStatusCode for OAuthLoginError {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::NoCorrespondingCode => StatusCode::BAD_REQUEST, //TODO: this is the good status for expired connection triy ?
             Self::EmailMissingInUserInfo(_)
+            | Self::NameMissingInUserInfo(_)
             | Self::RetrieveTokenFailed { .. }
             | Self::RetrieveUserProfile { .. }
+            | Self::MissingTokenId
+            | Self::InvalidAccessToken
+            | Self::Claims(_)
+            | Self::RequestTokenError(_)
             | Self::InactiveUser
             | Self::NonceMissingInResponse
             | Self::InvalidNonceInResponse

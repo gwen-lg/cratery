@@ -162,6 +162,12 @@ pub enum OAuthLoginError {
 
     #[error("no email in returned user info:\n{0}")]
     EmailMissingInUserInfo(String),
+
+    #[error("missing Nonce in OIDC response")]
+    NonceMissingInResponse,
+
+    #[error("the Nonce in OIDC response don't corredpond to expected")]
+    InvalidNonceInResponse,
 }
 impl AsStatusCode for OAuthLoginError {
     fn status_code(&self) -> StatusCode {
@@ -170,7 +176,9 @@ impl AsStatusCode for OAuthLoginError {
             Self::EmailMissingInUserInfo(_)
             | Self::RetrieveTokenFailed { .. }
             | Self::RetrieveUserProfile { .. }
-            | Self::InactiveUser => StatusCode::UNAUTHORIZED,
+            | Self::InactiveUser
+            | Self::NonceMissingInResponse
+            | Self::InvalidNonceInResponse => StatusCode::UNAUTHORIZED,
 
             Self::GetRetrieveToken { .. }
             | Self::RetrieveTokenResponse { .. }

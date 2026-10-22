@@ -21,10 +21,13 @@ async function apiMe() {
   return await onResponseJson(response);
 }
 
-async function apiOAuthLoginWithCode(code) {
+async function apiOAuthLoginWithCode(code, state) {
   const response = await fetch("/api/v1/oauth/code", {
     method: "POST",
-    body: code,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code, state }),
   });
   return await onResponseJson(response);
 }

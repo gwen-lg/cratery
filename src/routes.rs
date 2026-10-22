@@ -43,6 +43,7 @@ use crate::model::packages::{CrateInfo, CrateInfoTarget};
 use crate::model::stats::{DownloadStats, GlobalStats};
 use crate::model::worker::{JobSpecification, JobUpdate, WorkerDescriptor, WorkerPublicData, WorkerRegistrationData};
 use crate::model::{AppVersion, CrateVersion, RegistryInformation};
+use crate::services::authentication::OAuthLoginParams;
 use crate::services::database::users::OAuthLoginError;
 use crate::services::database::{DbReadError, DbWriteError};
 use crate::services::index::Index;
@@ -383,10 +384,9 @@ impl IntoResponse for LoginWithOAuthError {
 pub(crate) async fn api_v1_login_with_oauth_code(
     mut auth_data: AuthData,
     State(state): State<Arc<AxumState>>,
-    body: Bytes,
+    Json(params): Json<OAuthLoginParams>,
 ) -> Result<(StatusCode, [(HeaderName, HeaderValue); 1], Json<RegistryUser>), LoginWithOAuthError> {
-    let code = String::from_utf8_lossy(&body);
-    let registry_user = state.application.login_with_oauth_code(&code).await?;
+    let registry_user = state.application.login_with_oauth_code(params).await?;
     let cookie = auth_data.create_id_cookie(&Authentication::new_user(registry_user.id, registry_user.email.clone()));
     Ok((
         StatusCode::OK,

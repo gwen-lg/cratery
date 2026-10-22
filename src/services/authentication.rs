@@ -11,6 +11,14 @@ use crate::{
     services::database::users::OAuthLoginError,
     utils::token::generate_token,
 };
+use serde::Deserialize;
+
+/// Define the OAuth callback information
+#[derive(Debug, Deserialize)]
+pub struct OAuthLoginParams {
+    code: String,
+    state: String,
+}
 
 /// User information from OIDC
 #[derive(Debug, Default)]
@@ -61,10 +69,15 @@ impl AuthenticationService {
     }
 
     /// Attempts to login using an OAuth code
-    pub async fn login_with_oauth_code(&self, configuration: &Configuration, code: &str) -> Result<UserInfo, OAuthLoginError> {
-        let _nonce = self
+    pub async fn login_with_oauth_code(
+        &self,
+        configuration: &Configuration,
+        params: OAuthLoginParams,
+    ) -> Result<UserInfo, OAuthLoginError> {
+        let OAuthLoginParams { code, state } = params;
+        let nonce = self
             .pending_client_connect
-            .get(&code.to_string())
+            .get(&state)
             .await
             .ok_or(OAuthLoginError::NoCorrespondingCode)?;
 
@@ -74,7 +87,7 @@ impl AuthenticationService {
             .post(&configuration.oauth_token_uri)
             .form(&[
                 ("grant_type", "authorization_code"),
-                ("code", code),
+                ("code", &code),
                 ("redirect_uri", &configuration.oauth_callback_uri),
                 ("client_id", &configuration.oauth_client_id),
                 ("client_secret", &configuration.oauth_client_secret),
@@ -126,17 +139,22 @@ impl AuthenticationService {
             .bytes()
             .await
             .map_err(|source| OAuthLoginError::GetUserProfileResponse { source })?;
-        let user_info = serde_json::from_slice::<serde_json::Value>(&body).map_err(|source| {
+        let auth_response = serde_json::from_slice::<serde_json::Value>(&body).map_err(|source| {
             OAuthLoginError::ParseGetUserProfileResponse {
                 source,
                 body: String::from_utf8_lossy(&body).into(),
             }
         })?;
 
-        let email = find_field_in_blob(&user_info, &configuration.oauth_userinfo_path_email)
-            .ok_or_else(|| OAuthLoginError::EmailMissingInUserInfo(user_info.to_string()))?;
+        let resp_nonce = find_field_in_blob(&auth_response, "nonce").ok_or(OAuthLoginError::NonceMissingInResponse)?;
+        if resp_nonce != nonce {
+            return Err(OAuthLoginError::InvalidNonceInResponse);
+        }
 
-        let full_name = find_field_in_blob(&user_info, &configuration.oauth_userinfo_path_fullname).map(ToString::to_string);
+        let email = find_field_in_blob(&auth_response, &configuration.oauth_userinfo_path_email)
+            .ok_or_else(|| OAuthLoginError::EmailMissingInUserInfo(auth_response.to_string()))?;
+        let full_name =
+            find_field_in_blob(&auth_response, &configuration.oauth_userinfo_path_fullname).map(ToString::to_string);
 
         Ok(UserInfo {
             email: email.to_string(),

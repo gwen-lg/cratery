@@ -28,7 +28,7 @@ use crate::model::worker::{WorkerEvent, WorkerPublicData, WorkersManager};
 use crate::model::{AppEvent, CrateVersion, RegistryInformation};
 use crate::routes::LoginWithOAuthError;
 use crate::services::ServiceProvider;
-use crate::services::authentication::AuthenticationService;
+use crate::services::authentication::{AuthenticationService, OAuthLoginParams};
 use crate::services::database::admin::TokensError;
 use crate::services::database::packages::{CratesError, DepsError};
 use crate::services::database::stats::CratesStatsError;
@@ -386,10 +386,10 @@ impl Application {
     }
 
     /// Attempts to login using an OAuth code
-    pub(crate) async fn login_with_oauth_code(&self, code: &str) -> Result<RegistryUser, LoginWithOAuthError> {
+    pub(crate) async fn login_with_oauth_code(&self, params: OAuthLoginParams) -> Result<RegistryUser, LoginWithOAuthError> {
         let user_info = self
             .service_authentication
-            .login_with_oauth_code(&self.configuration, code)
+            .login_with_oauth_code(&self.configuration, params)
             .await?;
 
         let user_info_res = &user_info;

@@ -18,8 +18,8 @@
 <script>
   function onLoad() {
     const params = getQueryParameters(window.location.search);
-    if (params.code !== undefined) {
-      apiOAuthLoginWithCode(params.code)
+    if (params.code !== undefined && params.state !== undefined ) {
+      apiOAuthLoginWithCode(params.code, params.state)
         .then((user) => {
           window.localStorage.setItem("cratery-user", JSON.stringify(user));
           window.location.search = "";

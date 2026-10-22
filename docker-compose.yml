@@ -36,7 +36,6 @@ services:
       # REGISTRY_S3_ROOT:
       REGISTRY_OAUTH_LOGIN_URI: https://accounts.google.com/o/oauth2/v2/auth
       REGISTRY_OAUTH_TOKEN_URI: https://oauth2.googleapis.com/token
-      REGISTRY_OAUTH_CALLBACK_URI: http://localhost/webapp/oauthcallback.html
       REGISTRY_OAUTH_USERINFO_URI: https://openidconnect.googleapis.com/v1/userinfo
       REGISTRY_OAUTH_USERINFO_PATH_EMAIL: email
       REGISTRY_OAUTH_USERINFO_PATH_FULLNAME: name

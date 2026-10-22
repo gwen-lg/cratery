@@ -53,7 +53,6 @@ services:
       # REGISTRY_S3_BUCKET:
       REGISTRY_OAUTH_LOGIN_URI: https://accounts.google.com/o/oauth2/v2/auth
       REGISTRY_OAUTH_TOKEN_URI: https://oauth2.googleapis.com/token
-      REGISTRY_OAUTH_CALLBACK_URI: http://localhost/webapp/oauthcallback.html
       REGISTRY_OAUTH_USERINFO_URI: https://openidconnect.googleapis.com/v1/userinfo
       REGISTRY_OAUTH_USERINFO_PATH_EMAIL: email
       REGISTRY_OAUTH_USERINFO_PATH_FULLNAME: name
@@ -144,7 +143,6 @@ This is allowed only for `cratery` instances exposed on `localhost` for evaluati
 This configuration must be changed to use your own OAuth identity provider.
 
 * `REGISTRY_OAUTH_LOGIN_URI`: URI to redirect to when attempting to log in.
-* `REGISTRY_OAUTH_CALLBACK_URI`: URI on `cratery` the user will be redirected to on successful login on the identity provider.
 * `REGISTRY_OAUTH_TOKEN_URI`: URI `cratery` will connect to for obtaining an authorization token from the identity provider.
 * `REGISTRY_OAUTH_USERINFO_URI`: URI `cratery` will connect to for obtaining the user information from the identity provider when a user logged in.
 * `REGISTRY_OAUTH_USERINFO_PATH_EMAIL`: The path to the email field in the JSON blob returned by the identity provider as the user information.

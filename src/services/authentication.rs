@@ -84,6 +84,7 @@ impl AuthenticationService {
             RedirectUrl::new(format!("{}/webapp/oauthcallback.html", configuration.web_public_uri))
                 .expect("redirect url failed"),
         );
+        //TODO: .set_revocation_url ?
 
         // Generate a PKCE challenge.
         //let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();

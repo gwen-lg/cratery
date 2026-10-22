@@ -495,12 +495,12 @@ pub struct Configuration {
     /// The uri of the OAuth userinfo API endpoint
     #[serde(rename = "oauthUserInfoUri")]
     pub oauth_userinfo_uri: String,
-    /// Path to the email field in the JSON blob returned at the userinfo URI
-    #[serde(rename = "oauthUserInfoPathEmail")]
-    pub oauth_userinfo_path_email: String,
-    /// Path to the full name field in the JSON blob returned at the userinfo URI
-    #[serde(rename = "oauthUserInfoPathFullName")]
-    pub oauth_userinfo_path_fullname: String,
+    // /// Path to the email field in the JSON blob returned at the userinfo URI
+    // #[serde(rename = "oauthUserInfoPathEmail")]
+    // pub oauth_userinfo_path_email: String,
+    // /// Path to the full name field in the JSON blob returned at the userinfo URI
+    // #[serde(rename = "oauthUserInfoPathFullName")]
+    // pub oauth_userinfo_path_fullname: String,
     /// The identifier of the client to use
     #[serde(rename = "oauthClientId")]
     pub oauth_client_id: String,
@@ -608,8 +608,8 @@ impl Default for Configuration {
             oauth_token_uri: String::new(),
             oauth_callback_uri: String::new(),
             oauth_userinfo_uri: String::new(),
-            oauth_userinfo_path_email: String::from("email"),
-            oauth_userinfo_path_fullname: String::from("fullName"),
+            // oauth_userinfo_path_email: String::from("email"),
+            // oauth_userinfo_path_fullname: String::from("fullName"),
             oauth_client_id: String::new(),
             oauth_client_secret: String::new(),
             oauth_client_scope: String::new(),
@@ -701,9 +701,9 @@ impl Configuration {
             oauth_token_uri: get_var("REGISTRY_OAUTH_TOKEN_URI")?,
             oauth_callback_uri: get_var("REGISTRY_OAUTH_CALLBACK_URI")?,
             oauth_userinfo_uri: get_var("REGISTRY_OAUTH_USERINFO_URI")?,
-            oauth_userinfo_path_email: get_var("REGISTRY_OAUTH_USERINFO_PATH_EMAIL").unwrap_or_else(|_| String::from("email")),
-            oauth_userinfo_path_fullname: get_var("REGISTRY_OAUTH_USERINFO_PATH_FULLNAME")
-                .unwrap_or_else(|_| String::from("name")),
+            // oauth_userinfo_path_email: get_var("REGISTRY_OAUTH_USERINFO_PATH_EMAIL").unwrap_or_else(|_| String::from("email")),
+            // oauth_userinfo_path_fullname: get_var("REGISTRY_OAUTH_USERINFO_PATH_FULLNAME")
+            //     .unwrap_or_else(|_| String::from("name")),
             oauth_client_id: get_var("REGISTRY_OAUTH_CLIENT_ID")?,
             oauth_client_secret: get_var("REGISTRY_OAUTH_CLIENT_SECRET")?,
             oauth_client_scope: get_var("REGISTRY_OAUTH_CLIENT_SCOPE")?,

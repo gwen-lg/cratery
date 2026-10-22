@@ -3,7 +3,7 @@ use ring::digest::{Context, SHA256};
 
 /// Computes the SHA256 digest of bytes
 #[must_use]
-pub fn sha256(buffer: &[u8]) -> String {
+pub(crate) fn sha256(buffer: &[u8]) -> String {
     let mut context = Context::new(&SHA256);
     context.update(buffer);
     let digest = context.finish();

@@ -59,7 +59,7 @@ pub struct CrateVersion {
 
 /// An event can be handled asynchronously by the application
 #[derive(Debug, Clone)]
-pub enum AppEvent {
+pub(crate) enum AppEvent {
     /// The use of a token to authenticate
     TokenUse(TokenUsage),
     /// The download of a crate

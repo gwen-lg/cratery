@@ -62,7 +62,7 @@ impl AsStatusCode for CommandError {}
 
 /// Pushes an element in a vector if it is not present yet
 /// Returns `true` if the vector was modified
-pub fn push_if_not_present<T>(v: &mut Vec<T>, item: T) -> bool
+pub(crate) fn push_if_not_present<T>(v: &mut Vec<T>, item: T) -> bool
 where
     T: PartialEq<T>,
 {
@@ -77,18 +77,23 @@ where
 /// Builds an instant for stale data
 /// The value is 7 days before now
 #[must_use]
-pub fn stale_instant() -> Instant {
+pub(crate) fn stale_instant() -> Instant {
     let now = Instant::now();
     now.checked_sub(Duration::from_hours(24 * 7)).unwrap()
 }
 
 /// Execute a git command
-pub async fn execute_git(location: &Path, args: &[&str]) -> Result<(), CommandError> {
+pub(crate) async fn execute_git(location: &Path, args: &[&str]) -> Result<(), CommandError> {
     execute_at_location(location, "git", args, &[]).await.map(|_| ())
 }
 
 /// Execute a command at a location
-pub async fn execute_at_location(location: &Path, command: &str, args: &[&str], input: &[u8]) -> Result<Vec<u8>, CommandError> {
+pub(crate) async fn execute_at_location(
+    location: &Path,
+    command: &str,
+    args: &[&str],
+    input: &[u8],
+) -> Result<Vec<u8>, CommandError> {
     let mut child = Command::new(command)
         .current_dir(location)
         .args(args)
@@ -130,11 +135,11 @@ pub async fn execute_at_location(location: &Path, command: &str, args: &[&str], 
 }
 
 /// Box future that outputs a `Result` with an `ApiError`
-pub type FaillibleFuture<'a, T> = BoxFuture<'a, Result<T, ApiError>>;
+pub(crate) type FaillibleFuture<'a, T> = BoxFuture<'a, Result<T, ApiError>>;
 
 /// Transforms a comma separated list to a `Vec` of owned `String`
 #[must_use]
-pub fn comma_sep_to_vec(input: &str) -> Vec<String> {
+pub(crate) fn comma_sep_to_vec(input: &str) -> Vec<String> {
     input
         .split(',')
         .filter_map(|s| {

@@ -97,7 +97,7 @@ where
 }
 
 /// Specializes an API error with additional details
-pub fn specialize(original: ApiError, details: String) -> ApiError {
+pub(crate) fn specialize(original: ApiError, details: String) -> ApiError {
     ApiError {
         details: Some(details),
         ..original
@@ -106,7 +106,7 @@ pub fn specialize(original: ApiError, details: String) -> ApiError {
 
 /// Error when the operation failed in the backend
 #[must_use]
-pub fn error_backend_failure() -> ApiError {
+pub(crate) fn error_backend_failure() -> ApiError {
     ApiError::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "The operation failed in the backend.",
@@ -116,7 +116,7 @@ pub fn error_backend_failure() -> ApiError {
 
 /// Error when the operation failed due to invalid input
 #[must_use]
-pub fn error_invalid_request() -> ApiError {
+pub(crate) fn error_invalid_request() -> ApiError {
     ApiError::new(
         StatusCode::BAD_REQUEST,
         "The request could not be understood by the server.",
@@ -126,30 +126,20 @@ pub fn error_invalid_request() -> ApiError {
 
 /// Error when the user is not authorized (not logged in)
 #[must_use]
-pub fn error_unauthorized() -> ApiError {
+pub(crate) fn error_unauthorized() -> ApiError {
     ApiError::new(StatusCode::UNAUTHORIZED, "User is not authenticated.", None)
 }
 
 /// Error when the requested action is forbidden to the (otherwise authenticated) user
 #[must_use]
-pub fn error_forbidden() -> ApiError {
+pub(crate) fn error_forbidden() -> ApiError {
     ApiError::new(StatusCode::FORBIDDEN, "This action is forbidden to the user.", None)
 }
 
 /// Error when the requested user cannot be found
 #[must_use]
-pub fn error_not_found() -> ApiError {
+pub(crate) fn error_not_found() -> ApiError {
     ApiError::new(StatusCode::NOT_FOUND, "The requested resource cannot be found.", None)
-}
-
-/// Error when the request has a conflicts
-#[must_use]
-pub fn error_conflict() -> ApiError {
-    ApiError::new(
-        StatusCode::CONFLICT,
-        "The request could not be processed because of conflict in the current state of the resource.",
-        None,
-    )
 }
 
 #[must_use]

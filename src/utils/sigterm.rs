@@ -17,7 +17,7 @@ use tokio::signal::unix::{SignalKind, signal};
 /// # Panics
 ///
 /// Raise a panic when the terminate signal cannot be obtained.
-pub async fn waiting_sigterm<Fut, R>(future: Fut) -> R
+pub(crate) async fn waiting_sigterm<Fut, R>(future: Fut) -> R
 where
     Fut: Future<Output = R> + Unpin,
 {

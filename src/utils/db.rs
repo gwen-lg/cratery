@@ -108,7 +108,7 @@ fn sqlite_connect_from_str(url: &str) -> Result<SqliteConnectOptions, PoolCreate
 }
 
 /// The name of the metadata for the schema version
-pub const SCHEMA_METADATA_VERSION: &str = "version";
+pub(crate) const SCHEMA_METADATA_VERSION: &str = "version";
 
 /// A simple application transaction
 #[derive(Clone)]

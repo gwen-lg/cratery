@@ -15,7 +15,7 @@ use super::apierror::{ApiError, error_unauthorized};
 
 /// Generates a token
 #[must_use]
-pub fn generate_token(length: usize) -> String {
+pub(crate) fn generate_token(length: usize) -> String {
     let bytes_count = length * 3 / 4;
     let rng = rand::rng();
     let bytes = rng
@@ -27,7 +27,7 @@ pub fn generate_token(length: usize) -> String {
 
 /// Computes the SHA256 digest of bytes
 #[must_use]
-pub fn sha256(buffer: &[u8]) -> String {
+pub(crate) fn sha256(buffer: &[u8]) -> String {
     let mut context = Context::new(&SHA256);
     context.update(buffer);
     let digest = context.finish();
@@ -36,12 +36,12 @@ pub fn sha256(buffer: &[u8]) -> String {
 
 /// Hashes a token secret
 #[must_use]
-pub fn hash_token(input: &str) -> String {
+pub(crate) fn hash_token(input: &str) -> String {
     sha256(input.as_bytes())
 }
 
 /// Checks a token hash
-pub fn check_hash(token: &str, hashed: &str) -> Result<(), ApiError> {
+pub(crate) fn check_hash(token: &str, hashed: &str) -> Result<(), ApiError> {
     let matches = hashed == sha256(token.as_bytes());
     if matches { Ok(()) } else { Err(error_unauthorized()) }
 }

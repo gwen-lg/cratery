@@ -480,6 +480,9 @@ pub struct Configuration {
     /// Timeout (in milli-seconds) to use when interacting with the storage
     #[serde(rename = "storageTimeout")]
     pub storage_timeout: u64,
+    /// The uri of the OAuth discovery data
+    #[serde(rename = "oauthDiscoveryUri")]
+    pub oauth_discovery_uri: String,
     /// The uri of the OAuth login page
     #[serde(rename = "oauthLoginUri")]
     pub oauth_login_uri: String,
@@ -600,6 +603,7 @@ impl Default for Configuration {
             },
             storage: StorageConfig::FileSystem { retry_params: None },
             storage_timeout: 3000,
+            oauth_discovery_uri: String::new(),
             oauth_login_uri: String::new(),
             oauth_token_uri: String::new(),
             oauth_callback_uri: String::new(),
@@ -692,6 +696,7 @@ impl Configuration {
             storage,
             storage_timeout: get_var("REGISTRY_STORAGE_TIMEOUT")
                 .map_or(3000, |s| s.parse().expect("invalid REGISTRY_STORAGE_TIMEOUT")),
+            oauth_discovery_uri: get_var("REGISTRY_OAUTH_DISCOVERY_URI")?,
             oauth_login_uri: get_var("REGISTRY_OAUTH_LOGIN_URI")?,
             oauth_token_uri: get_var("REGISTRY_OAUTH_TOKEN_URI")?,
             oauth_callback_uri: get_var("REGISTRY_OAUTH_CALLBACK_URI")?,

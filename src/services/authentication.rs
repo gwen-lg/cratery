@@ -1,7 +1,11 @@
 use std::time::Duration;
 
 use moka::future::Cache;
-use reqwest::Client;
+use openidconnect::{
+    ClientId, ClientSecret, CsrfToken, IssuerUrl, Nonce, RedirectUrl, Scope,
+    core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata},
+    reqwest::{Client, ClientBuilder, Url, redirect},
+};
 
 use crate::{
     model::{
@@ -9,9 +13,24 @@ use crate::{
         config::Configuration,
     },
     services::database::users::OAuthLoginError,
-    utils::token::generate_token,
 };
 use serde::Deserialize;
+
+// Type returned from ProviderMetadata discovering
+type OIDCProviderMetadata = openidconnect::ProviderMetadata<
+    openidconnect::EmptyAdditionalProviderMetadata,
+    openidconnect::core::CoreAuthDisplay,
+    openidconnect::core::CoreClientAuthMethod,
+    openidconnect::core::CoreClaimName,
+    openidconnect::core::CoreClaimType,
+    openidconnect::core::CoreGrantType,
+    openidconnect::core::CoreJweContentEncryptionAlgorithm,
+    openidconnect::core::CoreJweKeyManagementAlgorithm,
+    openidconnect::core::CoreJsonWebKey,
+    openidconnect::core::CoreResponseMode,
+    openidconnect::core::CoreResponseType,
+    openidconnect::core::CoreSubjectIdentifierType,
+>;
 
 /// Define the OAuth callback information
 #[derive(Debug, Deserialize)]
@@ -32,13 +51,17 @@ pub struct UserInfo {
 /// Authentication is managed with idconnect protocole.
 pub struct AuthenticationService {
     http_client: Client,
-    pending_client_connect: Cache<String, String>,
+    pending_client_connect: Cache<String, Nonce>,
 }
 
 impl AuthenticationService {
     #[must_use]
     pub fn new() -> Self {
-        let http_client = Client::new();
+        let http_client = ClientBuilder::new()
+            .redirect(redirect::Policy::none())
+            .build()
+            .expect("reqwest Client should build");
+
         let pending_client_connect = Cache::builder()
             .max_capacity(100)
             .time_to_live(Duration::from_mins(5))
@@ -51,21 +74,41 @@ impl AuthenticationService {
 
     /// Gets the redirection response when not authenticated
     #[must_use]
-    pub async fn get_auth_redirect(&self, configuration: &Configuration) -> String {
-        // redirect to login
-        let nonce = generate_token(64);
-        let oauth_state = generate_token(32);
-        self.pending_client_connect.insert(oauth_state.clone(), nonce.clone()).await;
-        format!(
-            "{}?response_type={}&redirect_uri={}&client_id={}&scope={}&nonce={}&state={}",
-            configuration.oauth_login_uri,
-            "code",
-            urlencoding::encode(&format!("{}/webapp/oauthcallback.html", configuration.web_public_uri)),
-            urlencoding::encode(&configuration.oauth_client_id),
-            urlencoding::encode(&configuration.oauth_client_scope),
-            nonce,
-            oauth_state
+    pub async fn get_auth_redirect(&self, configuration: &Configuration) -> Url {
+        let provider_metadata = self
+            .provider_metadata(configuration)
+            .await
+            .expect("failed to construct oidc provider metadata");
+        let oidc_client = CoreClient::from_provider_metadata(
+            provider_metadata,
+            ClientId::new(configuration.oauth_client_id.clone()),
+            Some(ClientSecret::new(configuration.oauth_client_secret.clone())),
         )
+        // Set the URL the user will be redirected to after the authorization process.
+        .set_redirect_uri(
+            RedirectUrl::new(format!("{}/webapp/oauthcallback.html", configuration.web_public_uri))
+                .expect("redirect url failed"),
+        );
+
+        // Generate a PKCE challenge.
+        //let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+
+        // Generate the full authorization URL.
+        let (auth_url, csrf_token, nonce) = oidc_client
+            .authorize_url(
+                CoreAuthenticationFlow::AuthorizationCode,
+                CsrfToken::new_random,
+                Nonce::new_random,
+            )
+            // Set the desired scopes.
+            .add_scope(Scope::new("email".to_string()))
+            .add_scope(Scope::new("profile".to_string()))
+            // Set the PKCE code challenge.
+            //.set_pkce_challenge(pkce_challenge)
+            .url();
+
+        self.pending_client_connect.insert(csrf_token.into_secret(), nonce).await;
+        auth_url
     }
 
     /// Attempts to login using an OAuth code
@@ -81,7 +124,13 @@ impl AuthenticationService {
             .await
             .ok_or(OAuthLoginError::NoCorrespondingCode)?;
 
-        // retrieve the token
+        // // retrieve the token
+        // // Now you can exchange it for an access token and ID token.
+        // let token_response = client
+        //     .exchange_code(AuthorizationCode::new("some authorization code".to_string()))?
+        //     // Set the PKCE code verifier.
+        //     .set_pkce_verifier(pkce_verifier)
+        //     .request(&http_client)?;
         let response = self
             .http_client
             .post(&configuration.oauth_token_uri)
@@ -147,7 +196,7 @@ impl AuthenticationService {
         })?;
 
         let resp_nonce = find_field_in_blob(&auth_response, "nonce").ok_or(OAuthLoginError::NonceMissingInResponse)?;
-        if resp_nonce != nonce {
+        if resp_nonce != nonce.secret() {
             return Err(OAuthLoginError::InvalidNonceInResponse);
         }
 
@@ -160,6 +209,16 @@ impl AuthenticationService {
             email: email.to_string(),
             full_name,
         })
+    }
+
+    async fn provider_metadata(&self, configuration: &Configuration) -> Result<OIDCProviderMetadata, OAuthLoginError> {
+        let oidc_url = IssuerUrl::new(configuration.oauth_discovery_uri.clone()).expect("url construct failed");
+        CoreProviderMetadata::discover_async(oidc_url, &self.http_client)
+            .await
+            .map_err(|err| OAuthLoginError::DiscoveryFailed {
+                err,
+                uri: configuration.oauth_discovery_uri.clone(),
+            })
     }
 }
 

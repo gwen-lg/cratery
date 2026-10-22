@@ -9,6 +9,7 @@ use std::future::Future;
 
 use axum::http::StatusCode;
 use chrono::Local;
+use openidconnect::reqwest;
 use thiserror::Error;
 
 use super::Database;
@@ -168,6 +169,13 @@ pub enum OAuthLoginError {
 
     #[error("the Nonce in OIDC response don't corredpond to expected")]
     InvalidNonceInResponse,
+
+    #[error("failed to discovert OIDC on '{uri}'")]
+    DiscoveryFailed {
+        #[source]
+        err: openidconnect::DiscoveryError<openidconnect::HttpClientError<reqwest::Error>>,
+        uri: String,
+    },
 }
 impl AsStatusCode for OAuthLoginError {
     fn status_code(&self) -> StatusCode {
@@ -178,7 +186,8 @@ impl AsStatusCode for OAuthLoginError {
             | Self::RetrieveUserProfile { .. }
             | Self::InactiveUser
             | Self::NonceMissingInResponse
-            | Self::InvalidNonceInResponse => StatusCode::UNAUTHORIZED,
+            | Self::InvalidNonceInResponse
+            | Self::DiscoveryFailed { .. } => StatusCode::UNAUTHORIZED,
 
             Self::GetRetrieveToken { .. }
             | Self::RetrieveTokenResponse { .. }

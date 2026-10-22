@@ -150,7 +150,7 @@ async fn get_auth_redirect(state: &AxumState) -> (StatusCode, [(HeaderName, Head
     (
         StatusCode::FOUND,
         [
-            (header::LOCATION, HeaderValue::from_str(&target).unwrap()),
+            (header::LOCATION, HeaderValue::from_str(target.as_str()).unwrap()),
             (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
         ],
     )

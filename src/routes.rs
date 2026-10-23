@@ -393,6 +393,7 @@ pub(crate) async fn api_v1_login_with_oauth_code(
     Json(params): Json<OAuthLoginParams>,
 ) -> Result<(StatusCode, [(HeaderName, HeaderValue); 1], Json<RegistryUser>), LoginWithOAuthError> {
     let registry_user = state.application.login_with_oauth_code(params).await?;
+    //TODO manage error to send a 403 ?
     let cookie = auth_data.create_id_cookie(&Authentication::new_user(registry_user.id, registry_user.email.clone()));
     Ok((
         StatusCode::OK,

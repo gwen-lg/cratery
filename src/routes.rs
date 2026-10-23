@@ -147,13 +147,19 @@ async fn get_auth_redirect(state: &AxumState) -> (StatusCode, [(HeaderName, Head
         .get_service_auth()
         .get_auth_redirect(&state.application.configuration)
         .await;
-    (
-        StatusCode::FOUND,
-        [
-            (header::LOCATION, HeaderValue::from_str(target.as_str()).unwrap()),
-            (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
-        ],
-    )
+    match target {
+        Ok(target) => (
+            StatusCode::FOUND,
+            [
+                (header::LOCATION, HeaderValue::from_str(target.as_str()).unwrap()),
+                (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
+            ],
+        ),
+        Err(err) => {
+            let _ = into_response_error(&err);
+            todo!()
+        }
+    }
 }
 
 /// Gets the redirection for a crates shortcut

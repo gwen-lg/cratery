@@ -104,7 +104,7 @@ impl AuthenticationService {
             .url();
 
         self.pending_client_connect.insert(csrf_token.into_secret(), nonce).await;
-        auth_url
+        Ok(auth_url)
     }
 
     /// Attempts to login using an OAuth code

@@ -71,6 +71,9 @@ sqlx = { version = "0.9", default-features = false, features = [
 ] }
 tokio-tungstenite = "0.28"
 
+[profile.release]
+lto = "thin"
+
 [lints.rust]
 unsafe_code = "forbid"
 unused_imports = "warn"

@@ -5,3 +5,6 @@
 *.override.yml
 .env
 /data/*
+
+*.bak.*
+/.zed/*

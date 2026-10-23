@@ -2,7 +2,7 @@ ARG BUILD_FLAGS=
 ARG BUILD_TARGET=debug
 
 ## Base image with Rust toolchain and dependencies
-FROM buildpack-deps:24.04-curl AS base
+FROM buildpack-deps:26.04-curl AS base
 LABEL maintainer="Laurent Wouters <lwouters@cenotelie.fr>" vendor="Cénotélie Opérations SAS"  description="Cratery -- a private cargo registry"
 # add packages
 RUN apt-get update && apt-get install -y --no-install-recommends \

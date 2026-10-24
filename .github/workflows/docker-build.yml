@@ -41,6 +41,8 @@ jobs:
       digest: ${{ steps.build_native_amd64.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
+      - name: Get Git commit timestamps
+        run: echo "TIMESTAMP=$(git log -1 --pretty=%ct)" >> $GITHUB_ENV
       - name: login to DockerHub
         uses: docker/login-action@v4
         with:
@@ -56,7 +58,7 @@ jobs:
         id: build_native_amd64
         uses: ./.github/actions/build-native-digest
         env:
-          SOURCE_DATE_EPOCH: ${{ steps.git_commit_timestamp.outputs.commit_timestamp }}
+          SOURCE_DATE_EPOCH: ${{ env.TIMESTAMP }}
         with:
           tag: ${{ vars.DOCKERHUB_USERNAME }}/cratery
           arch: amd64
@@ -68,6 +70,8 @@ jobs:
       digest: ${{ steps.build_native_arm64.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
+      - name: Get Git commit timestamps
+        run: echo "TIMESTAMP=$(git log -1 --pretty=%ct)" >> $GITHUB_ENV
       - name: login to DockerHub
         uses: docker/login-action@v4
         with:
@@ -83,7 +87,7 @@ jobs:
         id: build_native_arm64
         uses: ./.github/actions/build-native-digest
         env:
-          SOURCE_DATE_EPOCH: ${{ steps.git_commit_timestamp.outputs.commit_timestamp }}
+          SOURCE_DATE_EPOCH: ${{ env.TIMESTAMP }}
         with:
           tag: ${{ vars.DOCKERHUB_USERNAME }}/cratery
           arch: arm64

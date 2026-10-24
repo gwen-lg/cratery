@@ -15,9 +15,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Get Git commit timestamps
-      shell: bash
-      run: echo "TIMESTAMP=$(git log -1 --pretty=%ct)" >> $GITHUB_ENV
     # - uses: docker/setup-buildx-action@v4
     - name: Build and Push Image ${{ inputs.arch }}
       id: build

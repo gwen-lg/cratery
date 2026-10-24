@@ -98,20 +98,26 @@ jobs:
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      # - name: login to Github docker registry
-      #   uses: docker/login-action@v4
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
+      - name: login to Github docker registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Manifest from Digests
         env:
           DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
         run: |
+          # DockerHub
           docker manifest create ${{ vars.DOCKERHUB_USERNAME }}/cratery:ghbuild \
             ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-amd64.outputs.digest }} \
             ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-arm64.outputs.digest }}
           docker manifest push ${{ vars.DOCKERHUB_USERNAME }}/cratery:ghbuild
+          # GitHub
+          docker manifest create ghcr.io/${{ github.actor }}/cratery:ghbuild \
+            ghcr.io/${{ github.actor }}/cratery:${{ needs.build-image-amd64.outputs.digest }} \
+            ghcr.io/${{ github.actor }}/cratery:${{ needs.build-image-arm64.outputs.digest }}
+          docker manifest push ghcr.io/${{ github.actor }}/cratery:ghbuild
 
       # - name: Create and Push Versioned Manifest
       #   if: github.ref_type == 'tag'

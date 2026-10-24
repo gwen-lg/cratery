@@ -105,22 +105,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Manifest from Digests
-        env:
-          DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
-          AMD64_DIGEST: ${{ needs.build-image-amd64.outputs.digest }}
-          ARM64_DIGEST: ${{ needs.build-image-arm64.outputs.digest }}
+        # env:
+        #   DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
         run: |
-          echo "AMD : $AMD64_DIGEST"
-          echo "ARM : ${{ needs.build-image-arm64.outputs.digest }}"
           # DockerHub
           docker manifest create ${{ vars.DOCKERHUB_USERNAME }}/cratery:ghbuild \
-            ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-amd64.outputs.digest }} \
-            ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-arm64.outputs.digest }}
+            ${{ vars.DOCKERHUB_USERNAME }}/cratery@${{ needs.build-image-amd64.outputs.digest }} \
+            ${{ vars.DOCKERHUB_USERNAME }}/cratery@${{ needs.build-image-arm64.outputs.digest }}
           docker manifest push ${{ vars.DOCKERHUB_USERNAME }}/cratery:ghbuild
           # GitHub
           docker manifest create ghcr.io/${{ github.actor }}/cratery:ghbuild \
-            ghcr.io/${{ github.actor }}/cratery:${{ needs.build-image-amd64.outputs.digest }} \
-            ghcr.io/${{ github.actor }}/cratery:${{ needs.build-image-arm64.outputs.digest }}
+            ghcr.io/${{ github.actor }}/cratery@${{ needs.build-image-amd64.outputs.digest }} \
+            ghcr.io/${{ github.actor }}/cratery@${{ needs.build-image-arm64.outputs.digest }}
           docker manifest push ghcr.io/${{ github.actor }}/cratery:ghbuild
 
       # - name: Create and Push Versioned Manifest

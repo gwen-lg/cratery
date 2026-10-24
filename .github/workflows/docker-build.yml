@@ -108,21 +108,21 @@ jobs:
         env:
           DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
         run: |
-          docker manifest create ${DOCKERHUB_USERNAME}/cratery:latest \
-            ${DOCKERHUB_USERNAME}/cratery:${{ needs.build-image-amd64.outputs.digest }} \
-            ${DOCKERHUB_USERNAME}/cratery:${{ needs.build-image-arm64.outputs.digest }}
-          docker manifest push ${DOCKERHUB_USERNAME}/cratery:latest
+          docker manifest create ${{ vars.DOCKERHUB_USERNAME }}/cratery:ghbuild \
+            ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-amd64.outputs.digest }} \
+            ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-arm64.outputs.digest }}
+          docker manifest push ${{ vars.DOCKERHUB_USERNAME }}/cratery:ghbuild
 
-      - name: Create and Push Versioned Manifest
-        if: github.ref_type == 'tag'
-        env:
-          DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
-        run: |
-          TAG_NAME="${{ github.ref_name }}"
-          docker manifest create ${DOCKERHUB_USERNAME}/cratery:$TAG_NAME \
-            ${DOCKERHUB_USERNAME}/cratery:${{ needs.build-image-amd64.outputs.digest }} \
-            ${DOCKERHUB_USERNAME}/cratery:${{ needs.build-image-arm64.outputs.digest }}
-          docker manifest push ${DOCKERHUB_USERNAME}/cratery:$TAG_NAME
+      # - name: Create and Push Versioned Manifest
+      #   if: github.ref_type == 'tag'
+      #   env:
+      #     DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
+      #   run: |
+      #     TAG_NAME="${{ github.ref_name }}"
+      #     docker manifest create ${{ vars.DOCKERHUB_USERNAME }}/cratery:$TAG_NAME \
+      #       ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-amd64.outputs.digest }} \
+      #       ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-arm64.outputs.digest }}
+      #     docker manifest push ${{ vars.DOCKERHUB_USERNAME }}/cratery:$TAG_NAME
 
 #   build-and-push:
 #     runs-on: ubuntu-latest

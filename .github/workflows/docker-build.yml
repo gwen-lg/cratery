@@ -38,7 +38,7 @@ jobs:
     if: vars.ENABLE_DOCKER_BUILD == 'true'
     runs-on: ubuntu-26.04
     outputs:
-      digest: ${{ steps.build_native.outputs.digest }}
+      digest: ${{ steps.build_native_amd64.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
       - name: login to DockerHub
@@ -53,7 +53,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: build native amd64
-        id: build_native
+        id: build_native_amd64
         uses: ./.github/actions/build-native-digest
         env:
           SOURCE_DATE_EPOCH: ${{ steps.git_commit_timestamp.outputs.commit_timestamp }}
@@ -65,7 +65,7 @@ jobs:
     if: vars.ENABLE_DOCKER_BUILD == 'true'
     runs-on: ubuntu-26.04-arm
     outputs:
-      digest: ${{ steps.build_native.outputs.digest }}
+      digest: ${{ steps.build_native_arm64.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
       - name: login to DockerHub
@@ -80,7 +80,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: build native arm64
-        id: build_native
+        id: build_native_arm64
         uses: ./.github/actions/build-native-digest
         env:
           SOURCE_DATE_EPOCH: ${{ steps.git_commit_timestamp.outputs.commit_timestamp }}
@@ -107,7 +107,11 @@ jobs:
       - name: Create Manifest from Digests
         env:
           DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
+          AMD64_DIGEST: ${{ needs.build-image-amd64.outputs.digest }}
+          ARM64_DIGEST: ${{ needs.build-image-arm64.outputs.digest }}
         run: |
+          echo "AMD : $AMD64_DIGEST"
+          echo "ARM : ${{ needs.build-image-arm64.outputs.digest }}"
           # DockerHub
           docker manifest create ${{ vars.DOCKERHUB_USERNAME }}/cratery:ghbuild \
             ${{ vars.DOCKERHUB_USERNAME }}/cratery:${{ needs.build-image-amd64.outputs.digest }} \

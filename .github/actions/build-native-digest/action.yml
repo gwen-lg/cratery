@@ -10,7 +10,7 @@ inputs:
 outputs:
   digest:
     description: "The SHA256 digest of the pushed image"
-    value: ${{ steps.extract_digest.outputs.digest }}
+    value: ${{ steps.build.outputs.digest }}
 
 runs:
   using: "composite"

@@ -4,7 +4,7 @@ set -euo pipefail
 # --- Configuration ---
 REPOSITORY_NAME="cratery"
 # Définition des données (Data)
-REQUIRED_VARS=("INPUT_BUILD_TARGET" "GITHUB_REF_TYPE" "GITHUB_REF_NAME" "DOCKERHUB_USERNAME")
+REQUIRED_VARS=("INPUT_BUILD_TARGET" "GITHUB_REF_TYPE" "GITHUB_REF_NAME" "DOCKERHUB_USERNAME" "ARCH")
 
 # --- Helper Functions ---
 log_error() {
@@ -64,6 +64,7 @@ fi
 # We use comma to separate tags as expected by docker/build-push-action
 FINAL_TAGS=""
 for tag in $BASE_TAGS; do
+    BUILD_TAGS+="${DOCKERHUB_USERNAME}/${REPOSITORY_NAME}:$tag,"
     # Append Docker Hub tag
     FINAL_TAGS+="${DOCKERHUB_USERNAME}/${REPOSITORY_NAME}:$tag,"
     # Append GitHub Registry tag
@@ -72,5 +73,15 @@ done
 # Remove trailing comma
 FINAL_TAGS="${FINAL_TAGS%,}"
 
+# New logic to create arch-specific tags
+ARCH_TAGS=""
+for repo in "$DOCKERHUB_USERNAME/$REPOSITORY_NAME" "ghcr.io/${GITHUB_REPOSITORY_OWNER}/${REPOSITORY_NAME}"; do
+    # This creates a tag like repo:build-amd64 or repo:build-arm64
+    ARCH_TAGS+="$repo:build-${ARCH},"
+done
+# Remove trailing comma
+BUILD_TAGS="${FINAL_TAGS%,}"
+
 # set tags_list variable for docker push
 echo "tags_list=$FINAL_TAGS" >> $GITHUB_OUTPUT
+echo "tags_build=" >> $GITHUB_OUTPUT

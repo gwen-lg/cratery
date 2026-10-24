@@ -10,7 +10,7 @@ inputs:
 outputs:
   digest:
     description: "The SHA256 digest of the pushed image"
-    value: ${{ steps.build.outputs.digest }}
+    value: ${{ steps.extract_digest.outputs.digest }}
 
 runs:
   using: "composite"
@@ -23,10 +23,18 @@ runs:
       id: build
       uses: docker/build-push-action@v7
       with:
-        #platforms: linux/${{ inputs.arch }}
+        # platforms: linux/${{ inputs.arch }}
         push: true
         tags: ${{ inputs.tag }}:build-${{ inputs.arch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         build-args: |
           SOURCE_DATE_EPOCH=${{ env.TIMESTAMP }}
+    - name: Extract image digest
+      id: extract_digest
+      shell: bash
+      run: |
+        DIGEST=$(docker manifest inspect ${{ inputs.tag }}:build-${{ inputs.arch }} | jq -r '.manifests[] | select(.platform.architecture == "${{ inputs.arch }}") | .digest')
+
+        echo "Extracted Manifest Digest: $DIGEST"
+        echo "digest=$DIGEST" >> $GITHUB_OUTPUT

@@ -61,7 +61,7 @@ jobs:
         env:
           SOURCE_DATE_EPOCH: ${{ steps.git_commit_timestamp.outputs.commit_timestamp }}
         with:
-          tag: ${{ github.actor }}/cratery
+          tag: ${{ vars.DOCKERHUB_USERNAME }}/cratery
           arch: amd64
 
   build-image-arm64:
@@ -91,7 +91,7 @@ jobs:
         env:
           SOURCE_DATE_EPOCH: ${{ steps.git_commit_timestamp.outputs.commit_timestamp }}
         with:
-          tag: ${{ github.actor }}/cratery
+          tag: ${{ vars.DOCKERHUB_USERNAME }}/cratery
           arch: arm64
 
   create-manifest:
@@ -99,17 +99,17 @@ jobs:
     needs: [build-image-amd64, build-image-arm64]
     runs-on: ubuntu-latest
     steps:
-      # - name: login dockerhub images repository
-      #   uses: docker/login-action@v4
-      #   with:
-      #     username: ${{ vars.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: login github images repository
+      - name: login dockerhub images repository
         uses: docker/login-action@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # - name: login github images repository
+      #   uses: docker/login-action@v4
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Manifest from Digests
         env:
           DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"

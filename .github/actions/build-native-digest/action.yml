@@ -22,7 +22,7 @@ runs:
       with:
         platforms: linux/${{ inputs.arch }}
         push: true
-        tags: ${{ inputs.tag }}:build-${{ inputs.arch }},ghcr.io/gwen-lg/cratery:build-${{ inputs.arch }}
+        tags: ${{ inputs.tag }}:build-${{ inputs.arch }},ghcr.io/${{ github.repository }}:build-${{ inputs.arch }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         build-args: |

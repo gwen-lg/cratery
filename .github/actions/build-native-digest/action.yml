@@ -1,0 +1,34 @@
+name: "Build Native and Push Digest"
+description: "Builds a docker image for a specific arch, extracts the digest, pushes it, and cleans up."
+inputs:
+  tag:
+    description: "Temporary tag for the build"
+    required: true
+  arch:
+    description: "Target architecture (amd64 or arm64)"
+    required: true
+outputs:
+  digest:
+    description: "The SHA256 digest of the pushed image"
+    value: ${{ steps.extract_digest.outputs.digest }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: build image natively
+      shell: bash
+      run: docker build --platform linux/${{ inputs.arch }} -t ${{ inputs.tag }}:build-${{ inputs.arch }} .
+    - name: extract digest
+      id: extract_digest
+      shell: bash
+      run: |
+        # Extract the digest (stripping the tag prefix)
+        DIGEST=$(docker inspect --format='{{.RepoDigests}}' ${{ inputs.tag }}:build-${{ inputs.arch }} | cut -d'@' -f2 | tr -d '[]"')
+        echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+    - name: push image
+      shell: bash
+      run: |
+        # Push only the digest to the registry
+        docker push ${{ inputs.tag }}:build-${{ inputs.arch }}
+        # Remove the temporary tag from the local docker daemon
+        docker rmi ${{ inputs.tag }}:build-${{ inputs.arch }}

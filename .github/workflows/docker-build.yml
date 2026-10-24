@@ -12,6 +12,7 @@ on:
       - "v*"
     branches:
       - "main"
+      - "docker_image_github_build" # WIP: TODO: remove
   workflow_dispatch:
     inputs:
       build_target:
@@ -33,45 +34,115 @@ on:
           - linux/amd64,linux/arm64
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  build-image-amd64:
     if: vars.ENABLE_DOCKER_BUILD == 'true'
+    runs-on: ubuntu-26.04
+    outputs:
+      digest: ${{ steps.build_native.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
-      - name: Generate Docker Tags and Build Args
-        id: gen_docker_tags_list_and_build_args
-        env:
-          INPUT_BUILD_TARGET: "${{ github.event.inputs.build_target || 'Release' }}"
-          DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
-        run: ./.github/scripts/docker-build.sh
-      - name: Get Git commit timestamps
-        id: git_commit_timestamp
-        run: echo "commit_timestamp=$(git log -1 --pretty=%ct)" >> $GITHUB_OUTPUT
-
-      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/login-action@v4
+      # - name: login dockerhub images repository
+      #   uses: docker/login-action@v4
+      #   with:
+      #     username: ${{ vars.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: login github images repository
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v7
-        env:
-          SOURCE_DATE_EPOCH: ${{ steps.git_commit_timestamp.outputs.commit_timestamp }}
+      - name: build native amd64
+        uses: ./.github/actions/build-native-digest
         with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
-          build-args: |
-            BUILD_FLAGS=${{ steps.gen_docker_tags_list_and_build_args.outputs.build_flags }}
-            BUILD_TARGET=${{ steps.gen_docker_tags_list_and_build_args.outputs.build_target }}
-            BUILD_GIT_TAG=${{ github.ref_name }}
-            BUILD_GIT_HASH=${{ github.sha }}
-          tags: "${{ steps.gen_docker_tags_list_and_build_args.outputs.tags_list }}"
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tag: cenotelie/cratery
+          arch: amd64
+
+  build-image-arm64:
+    if: vars.ENABLE_DOCKER_BUILD == 'true'
+    runs-on: ubuntu-26.04-arm
+    outputs:
+      digest: ${{ steps.build_native.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      # - name: login dockerhub images repository
+      #   uses: docker/login-action@v4
+      #   with:
+      #     username: ${{ vars.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: login github images repository
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: build native arm64
+        uses: ./.github/actions/build-native-digest
+        with:
+          tag: cenotelie/cratery
+          arch: arm64
+
+  create-manifest:
+    if: vars.ENABLE_DOCKER_BUILD == 'true'
+    needs: [build-image-amd64, build-image-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      # - name: login dockerhub images repository
+      #   uses: docker/login-action@v4
+      #   with:
+      #     username: ${{ vars.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: login github images repository
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Manifest from Digests
+        run: |
+          docker manifest create cenotelie/cratery:latest \
+            cenotelie/cratery@${{ needs.build-images-amd64.outputs.digest }} \
+            cenotelie/cratery@${{ needs.build-images-arm64.outputs.digest }}
+          docker manifest push cenotelie/cratery:latest
+
+      - name: Create and Push Versioned Manifest
+        if: github.ref_type == 'tag'
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          docker manifest create my-repo/my-app:$TAG_NAME \
+            my-repo/my-app@${{ needs.build-amd64.outputs.digest }} \
+            my-repo/my-app@${{ needs.build-arm64.outputs.digest }}
+          docker manifest push my-repo/my-app:$TAG_NAME
+
+#   build-and-push:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v7
+#       - name: Generate Docker Tags and Build Args
+#         id: gen_docker_tags_list_and_build_args
+#         env:
+#           INPUT_BUILD_TARGET: "${{ github.event.inputs.build_target || 'Release' }}"
+#           DOCKERHUB_USERNAME: "${{ vars.DOCKERHUB_USERNAME }}"
+#         run: ./.github/scripts/docker-build.sh
+#       - name: Get Git commit timestamps
+#         id: git_commit_timestamp
+#         run: echo "commit_timestamp=$(git log -1 --pretty=%ct)" >> $GITHUB_OUTPUT
+#
+#       - uses: docker/build-push-action@v7
+#         env:
+#           SOURCE_DATE_EPOCH: ${{ steps.git_commit_timestamp.outputs.commit_timestamp }}
+#         with:
+#           context: .
+#           file: ./Dockerfile
+#           push: true
+#           platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
+#           build-args: |
+#             BUILD_FLAGS=${{ steps.gen_docker_tags_list_and_build_args.outputs.build_flags }}
+#             BUILD_TARGET=${{ steps.gen_docker_tags_list_and_build_args.outputs.build_target }}
+#             BUILD_GIT_TAG=${{ github.ref_name }}
+#             BUILD_GIT_HASH=${{ github.sha }}
+#           tags: "${{ steps.gen_docker_tags_list_and_build_args.outputs.tags_list }}"
+#           cache-from: type=gha
+#           cache-to: type=gha,mode=max

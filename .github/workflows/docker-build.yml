@@ -51,6 +51,13 @@ jobs:
         type=semver,pattern={{version}}
         type=semver,pattern={{major}}.{{minor}}
       set-meta-annotations: true
+      annotations: |
+        org.opencontainers.image.authors="Laurent Wouters <lwouters@cenotelie.fr>"
+        org.opencontainers.image.description="Cratery -- a private cargo registry"
+        org.opencontainers.image.vendor="Cénotélie Opérations SAS"
+        org.opencontainers.image.source=${{ github.repositoryUrl }}
+        org.opencontainers.image.version={{version}}
+        org.opencontainers.image.licenses="MIT"
     secrets:
       registry-auths: |
         - registry: docker.io

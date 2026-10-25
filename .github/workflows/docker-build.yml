@@ -52,7 +52,7 @@ jobs:
         type=semver,pattern={{major}}.{{minor}}
       set-meta-annotations: true
       annotations: |
-        org.opencontainers.image.authors="Laurent Wouters <lwouters@cenotelie.fr>"
+        org.opencontainers.image.authors="Laurent Wouters <lwouters@cenotelie.fr>, Gwen Lg <contact@gwenlg.fr>"
         org.opencontainers.image.description="Cratery -- a private cargo registry"
         org.opencontainers.image.vendor="Cénotélie Opérations SAS"
         org.opencontainers.image.source=${{ github.repositoryUrl }}

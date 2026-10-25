@@ -4,7 +4,7 @@ ARG BUILD_TARGET=debug
 ## Base image with Rust toolchain and dependencies
 FROM buildpack-deps:26.04-curl AS base
 LABEL org.opencontainers.image.title="cratery" \
-    org.opencontainers.image.authors="Laurent Wouters <lwouters@cenotelie.fr>" \
+    org.opencontainers.image.authors="Laurent Wouters <lwouters@cenotelie.fr>, Gwen Lg <contact@gwenlg.fr>" \
     org.opencontainers.image.vendor="Cénotélie Opérations SAS" \
     org.opencontainers.image.description="Cratery -- a private cargo registry" \
     org.opencontainers.image.licenses="MIT"

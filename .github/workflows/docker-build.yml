@@ -32,18 +32,22 @@ jobs:
     permissions:
       contents: read # to fetch the repository content
       id-token: write # for signing attestations and cache entries with GitHub OIDC
+      packages: write
     with:
       output: image
       push: ${{ github.event_name != 'pull_request' }}
       platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
       cache: true
-      meta-images: ${{ vars.DOCKERHUB_USERNAME }}/cratery
+      meta-images: |
+        ${{ vars.DOCKERHUB_USERNAME }}/cratery
+        ghcr.io/gwen-lg/cratery
       build-args: |
         BUILD_FLAGS=--release
         BUILD_TARGET=release
         BUILD_GIT_TAG=${{ github.ref_name }}
         BUILD_GIT_HASH=${{ github.sha }}
       meta-tags: |
+        type=ref,event=branch
         type=semver,pattern={{version}}
         type=semver,pattern={{major}}.{{minor}}
     secrets:
@@ -51,3 +55,6 @@ jobs:
         - registry: docker.io
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+        - registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}

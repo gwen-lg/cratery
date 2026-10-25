@@ -1,0 +1,38 @@
+# Required configuration for forks:
+# To enable Docker builds, configure the following in "Settings > Secrets and variables > Actions":
+# - DOCKERHUB_USERNAME (Variable): Your Docker Hub username
+# - DOCKERHUB_TOKEN (Secret): Your Docker Hub personal access token
+
+name: Docker Build and Push
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+
+jobs:
+  build:
+    uses: docker/github-builder/.github/workflows/build.yml@v1
+    permissions:
+      contents: read # to fetch the repository content
+      id-token: write # for signing attestations and cache entries with GitHub OIDC
+    with:
+      output: image
+      push: ${{ github.event_name != 'pull_request' }}
+      platforms: "linux/amd64,linux/arm64"
+      cache: true
+      meta-images: ${{ vars.DOCKERHUB_USERNAME }}/cratery
+      build-args: |
+        BUILD_FLAGS=--release
+        BUILD_TARGET=release
+        BUILD_GIT_TAG=${{ github.ref_name }}
+        BUILD_GIT_HASH=${{ github.sha }}
+      meta-tags: |
+        type=semver,pattern={{version}}
+        type=semver,pattern={{major}}.{{minor}}
+    secrets:
+      registry-auths: |
+        - registry: docker.io
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}

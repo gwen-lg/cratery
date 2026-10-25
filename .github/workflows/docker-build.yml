@@ -50,6 +50,7 @@ jobs:
         type=ref,event=branch
         type=semver,pattern={{version}}
         type=semver,pattern={{major}}.{{minor}}
+      set-meta-annotations: true
     secrets:
       registry-auths: |
         - registry: docker.io
